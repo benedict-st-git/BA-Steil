@@ -50,6 +50,51 @@ and the L2-norm an intermediate amount of neighbours. To compute RPs, the L∞-n
 computationally faster and allows to study some features in RPs analytically."
 %
 ## Paper von 2006 Sektion 3.2.2:
+#### Wie ist \epsilon zu wählen?
+\item right size of \epsilon crucial \rightarrow dynamic \epsilon of some sort? or filtering later on in black points ? das ist mein sampling oder?
+%
+\item "Moreover,
+the influence of noise can entail choosing a larger threshold, because noise would distort any existing structure in the
+RP. At a higher threshold, this structure may be preserved (see Section 3.12)."
+%
+\item "Several “rules of thumb” for the choice of the threshold ε have been advocated in the literature, e.g., a few per cent
+of the maximum phase space diameter has been suggested [48]. Furthermore, it should not exceed 10% of the mean or
+the maximum phase space diameter [49,50]."
+%
+\item "A further possibility is to choose ε according to the recurrence point density of the RP by seeking a scaling region
+in the recurrence point density [51]. However, this may not be suitable for non-stationary data. For this case it was
+proposed to choose ε such that the recurrence point density is approximately 1% [51]"
+%
+\item "Another criterion for the choice of ε takes into account that a measurement of a process is a composition of the real
+signal and some observational noise with standard deviation \sigma [52]. In order to get similar results as for the noise-free
+situation, ε has to be chosen such that it is five times larger than the standard deviation of the observational noise, i.e.
+ε > 5\sigma (cf. Section 3.12). This criterion holds for a wide class of processes."
+%
+\item "For (quasi-)periodic processes, the diagonal structures within the RP can be used in order to determine an optimal
+threshold [53]" 
+\rightarrow 
+"For this purpose, the density distribution of recurrence points along the diagonals parallel to the LOI
+is considered (which corresponds to the diagonal-wise defined 
+-recurrence rate RR
+, Eq. (50)). From such a density
+plot, the number of significant peaks Np is counted. Next, the average number of neighbours Nn, Eq. (44), that each
+point has, is computed. The threshold ε should be chosen in such a way that Np is maximal and Nn approaches Np."
+\rightarrow 
+aber das erfordert RP komplett bestimmen? oder kann ich "For this purpose, the density distribution of recurrence points along the diagonals parallel to the LOI
+is considered" demnach aus meinen eh gespeciherten daten, dann dynamisch, nachdem ich irwie einige linien habe und vlt noch ein paar punkte in umgebung (density along the lines) speichere (speicherplatz verschwendung?!), die ich eh berechnet habe beim sampling (passiert glaube nicht, bei entlang der linien samplen oder zumindest nicht ausreichend um eine vertrauenswürdige density distribution zu erhalten!?!) dann ein besseres \epsilon bestimmen und damit weiter machen?
+\rightarrow ICh denke die ganzen Ns bestimmen usw. dauert viel zu lange/Ukostet viel zu viel und ist es in der genauigkeit nicht wert, wenn eine der anderen methoden zur bestimmung von \epsilon viel schneller und annähernd so genau ist!!??
+\rightarrow "Therefore, a good choice of ε would be to minimise the quantity
+
+(ε) = |Nn(ε) − Np(ε)|
+Nn(ε) .
+\begin{align*}
+\beta(ε) = \frac{|N_n(ε) - N_p(ε)|}{N_n(ε)}"
+\Rightarrow "This criterion minimises the fragmentation and thickness of the diagonal lines with respect to the threshold, which can
+be useful for de-noising, e.g., of acoustic signals." 
+\Rightarrow Sceletonization einsparen? \rightarrow also derartig dynamisches epsilon/eine (nicht unbedingt letztere/diese hier) methode des epsilon-bestimmens besser als scelletonization durch coarse graining? oder etwas völlig anderes um das problem der dicken linien präventiv (wie mit epsilon) oder im nachhinein/reaktiv (wie mit coarse graining) am effizientesten zu lösen?
+% 
+### 04 h : 18 min (seit dem letzten Zeitstempel)
+%
 \item 
 }
 
