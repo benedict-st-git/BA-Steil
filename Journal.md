@@ -134,6 +134,18 @@ trajectories, because typical patterns in RPs are linked to a specific behaviour
 %
 ### 00 h : 46 min (seit dem letzten Zeitstempel)
 %
+\item "RPs yield important insights into the time evolution of these
+trajectories, because typical patterns in RPs are linked to a specific behaviour of the system. Large scale patterns in
+RPs, designated in [2] as typology, can be classified in homogeneous, periodic, drift and disrupted ones [2,54]:"
+%
+\item andere Abbruchbedingung, die greift, wenn homogenes system - die also möglichst schnell erkennt hier gibt es keine rqa werte zu bestimmen und abbricht? \rightarrow oder müssen trd rqa werte bestimmt werden, um zu erkennen, dass es ein homogenes system ist und man will die haben?
+%
+\item  Relaxationszeit bestimmt die strukturen und stationarität bestimmt die ausbreitung/homogenität/verteilung dieser strukturen im RP - Stationär = überall im RP eine struktur.
+\rightarrow die homogene RP-struktur wird durch relaxationszeit = kurz und stationarität = stationär gegeben. also nur einzelne punkte und überall im RP/zu jeder zeit mit der selben dichte/verteilung.
+\Leftrightarrow Stationarität bestimmt das "Makro-Bild" (Typologie). Die Ähnlichkeit aufeinanderfolgender Zustände ((implizit) gegeben u.A. durch die relaxationszeit) bestimmt das "Mikro-Bild" (Linien vs. Punkte).
+%
+### 02 h : 02 min (seit dem letzten Zeitstempel)
+%
 \item 
 }
 
