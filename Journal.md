@@ -140,16 +140,148 @@ RPs, designated in [2] as typology, can be classified in homogeneous, periodic, 
 %
 \item andere Abbruchbedingung, die greift, wenn homogene RPs - die also möglichst schnell erkennt hier gibt es keine rqa werte zu bestimmen und abbricht? \rightarrow oder müssen trd rqa werte bestimmt werden, um zu erkennen, dass es ein homogene RPs ist und man will die haben?
 %
-\item  Relaxationszeit bestimmt die strukturen und stationarität bestimmt die ausbreitung/homogenität/verteilung dieser strukturen im RP - Stationär = überall im RP eine struktur.
+\item  Relaxationszeit bestimmt die strukturen und stationarität bestimmt die ausbreitung/homogenität/verteilung dieser strukturen im RP - Stationär = überall im RP eine struktur = eine verteilung der observablen über alle zeit?! = selber mittelwert über alle zeit über alle observablen?! = homogene/selbe verteilung im ganzen RP.
 \rightarrow die homogene RP-struktur wird durch relaxationszeit = kurz und stationarität = stationär gegeben. also nur einzelne punkte und überall im RP/zu jeder zeit mit der selben dichte/verteilung.
 \Leftrightarrow Stationarität bestimmt das "Makro-Bild" (Typologie). Die Ähnlichkeit aufeinanderfolgender Zustände ((implizit) gegeben u.A. durch die relaxationszeit) bestimmt das "Mikro-Bild" (Linien vs. Punkte).
 %
 ### 02 h : 02 min (seit dem letzten Zeitstempel)
 %
-\item mit gemini zu dem abschnitt der periodischen strukturen
+\item mit gemini diskurs zu dem abschnitt der periodischen strukturen (inhalte folgen?!)
 %
 ### 01 h : 56 min (seit dem letzten Zeitstempel)
 %
-\item 
+## Thematisch passender Exkurs/Einschub auf MAltes aussage hin
+%
+\item
+2,3 2,4 2,5 2,6
+3,3 3,4 3,5 3,6
+4,3 4,4 4,5 4,6
+5,3 5,4 5,5 5,6 
+\Rightarrow eine horizontale schwarz, dann muss auch das quadrat mit der horizontale als obere kante schwarz sein?? und innnen auhc komplett schwarz??
+(bezug auf MAltes aussage, es kann gewisse strukturen im RP nicht geben (hier: kein quadrat mit nur weiß im innern??))
+10,3 10,4 10,5 10,6
+11,3 11,4 11,5 11,6
+12,3 12,4 12,5 12,6
+13,3 13,4 13,5 13,6
+\\
+\Rightarrow NEIN!! nur nahe LOI, wegen zeitlicher/zahlenwertiger nähe der Punkte, welche nahe LOI sind siehe oben (2,3,4,5 in spalten und zeilen und demnach auf allen kanten des quadrats die selben zahlen)
+\\
+\rightarrow ABER Malte hat recht, wenn alle kanten schwarz im innern nie nur weiß
+\\
+\rightarrow weshalb?  alle kanten schwarz. dann wissen wir 11 nahe 3 und 11 nahe 6, aber das heißt doch nicht, dass 11 nahe 4 oder nahe 5 sein muss?
+\\
+\rightarrow 
+%
+\item Welche strukturen gibt es nicht im RP \rightarrow alle die mit grundregeln brechen:\\
+(Es gibt keine festgelegte "Anzahl" (wie 5 oder 10), aber es gibt drei eiserne Grundregeln, die bestimmte Muster in einem Standard-RP mathematisch unmöglich machen.Asymmetrie: 
+\\
+Ein Standard-RP ist an der Hauptdiagonalen gespiegelt. Wenn Punkt $(3, 10)$ schwarz ist, muss $(10, 3)$ schwarz sein. Die Metrik ist symmetrisch (die Distanz von A nach B ist gleich der von B nach A). Ein RP, das oben links anders aussieht als unten rechts, ist verboten.
+\\
+Eine weiße Hauptdiagonale (LOI): Die Diagonale $i=j$ vergleicht den Zustand $x_5$ mit sich selbst ($x_5$). Die Distanz ist immer exakt $0$. Daher muss die Hauptdiagonale immer durchgehend schwarz sein. Lücken sind hier verboten.
+\\
+Das komplett hohle Quadrat (ohne Inhalt): für physikalische systeme ser unrealistisch, dass es ein hohles quadrat gibt, aber rein mathematisch möglich!!\\
+Lass uns jetzt exakt deine $4 \times 4$ Matrix berechnen, indem wir einfach den Abstand ausrechnen ($|A - B| \le 2$ ist Schwarz, $> 2$ ist Weiß):
+\\
+Die obere Kante (Zeile 10 vergleicht sich mit 3, 4, 5, 6):
+\\
+$|2 - 0| = 2$ (Schwarz)$\\
+|2 - 3| = 1$ (Schwarz)$\\
+|2 - 3| = 1$ (Schwarz)$\\
+|2 - 0| = 2$ (Schwarz) \\
+$\rightarrow$ Obere Kante ist komplett schwarz!
+\\
+Die linke Kante (Zeilen 10, 11, 12, 13 vergleichen sich mit Spalte 3):
+\\
+$|2 - 0| = 2$ (Schwarz)$\\
+|-1 - 0| = 1$ (Schwarz)$\\
+|-1 - 0| = 1$ (Schwarz)$\\
+|2 - 0| = 2$ (Schwarz) \\
+$\rightarrow$ Linke Kante ist komplett schwarz!
+\\
+(Das gleiche gilt für die rechte und untere Kante, sie sind alle $\le 2$).
+\\
+Jetzt kommt DEIN Moment – das Innere des Quadrats (Zeile 11 und 12 gegen Spalte 4 und 5):
+\\
+Zeile 11 gegen Spalte 4: $|-1 - 3| = 4$ (Weiß!)\\
+Zeile 11 gegen Spalte 5: $|-1 - 3| = 4$ (Weiß!)\\
+Zeile 12 gegen Spalte 4: $|-1 - 3| = 4$ (Weiß!)\\
+Zeile 12 gegen Spalte 5: $|-1 - 3| = 4$ (Weiß!)
+)
+# 11.05.2026
+### reset Zeitstempel (dokumentation per screenshots vorhanden, retrospektive protokollierung hier wird folgen)
+%
+## 3.2.3 - Structures in RPs - further/nochmal neu:
+%
+\item RPs ursprünglich um trajectorien im Phasenraum zu visualisieren, was v.A. was bringt für hochdimensonale systeme (weshalb?)
+%
+\item RPs geben einblick in die zeitliche entwicklung der trajektorien, da muster im RP jeweils einem verhalten der trajektorie entsprechen
+%
+\item es gibt "large scale patterns" (Typologie) und "small scale patterns" (strukturen) im RP, die beide mit bestimmten verhalten der trajektorien korrespondieren
+%
+\item large scale patterns sind: homogeneous, periodic (und quasi-periodic), drift und disrupted ones
+%
+\item homogeneous/homogen: überall selbe verteilung schwarze punkte. 
+\\
+typisches system für homogene RPs: stationär (**) mit kurzer relaxationszeit relativ zur zeitspanne des RP (vergangene punkte haben keinen einfluss auf gegenwärtige oder nur der unmittelbar vergangene punkt/zustand)
+\\
+Beispiel: stationary random time series (z.B. weißes rauschen) (weil stationär, also überall selbe verteilung der observablen über alle zeit, und kurze relaxationszeit, also keine ähnlichkeit von aufeinanderfolgenden punkten, also nur einzelne punkte im RP)
+\\
+** Die statistische Definition (für Zeitreihen/Rauschen):\\
+"Ein System ist stationär, wenn die zugrundeliegende Wahrscheinlichkeitsverteilung seiner Zustände im Phasenraum – sowie alle statistischen Zusammenhänge zwischen verschiedenen Zeitschritten – über die gesamte Zeit hinweg absolut konstant (zeitinvariant) bleiben."\\
+Die physikalisch-dynamische Definition (für Pendel/Chaos/Rössler):\\
+"Ein System ist stationär, wenn die physikalischen Parameter und Bewegungsgleichungen (die Regeln, nach denen der nächste Zustand aus dem vorherigen berechnet wird) sich über die Zeit nicht verändern. Dadurch füllt die Trajektorie langfristig immer denselben Attraktor im Phasenraum (die invariante Verteilung) mit derselben Dichte aus."
+%
+\item periodic: diagonal orientierte strukturen die entsprechend ihrer periodendauer regelmäßig parallel zur LOI wiederkehren. hier können diese strukturen beliebige kombinationen aus diagonalen, vertikalen und horizontalen linien sein (daraus können kreise, blumen oder andere muster entstehen), aber sie müssen regelmäßig parallel zur LOI wiederkehren, damit es sich um periodische strukturen handelt. mehrere überlagernde/interferierende frequenzen können zu komplexeren periodischen strukturen führen und nicht so einfach zu findenden. Aber es geht allg darum, dass wir immer die selbe struktur wiederkehrend haben für eine der interferierenden schwingungen. Also z.B. in Fig.5B haben wir die großen diagonalen von der immer gleichen superposition der beiden schwingungen, dann haben wir aber die schwingungen mit anderer frequenz die mit ihrer frequenz immer wiederkehrende selbe merkwürdige strukturen erzeugt (mal ein bsischen weniger starke steigung hier, mal ein plateau dort, oder sogar mal ein bereich schneller low amplitude schwingungen und dann wieder großer amplitude schwingungen, hier gibt es keine grenzen.). Der punkt ist, eine schwingung dominiert die interferenz und wird dadurch seine frequenz und periode der superposition aufzwingen (es gilt: 1. Je größer der Amplitudenunterschied, desto weniger Einfluss durch die kleinere Amplitud und ?2. Je größer die Frequenzunterschiede, desto weniger Einfluss durch die kleinere Amplitude, weil die kleinere Amplitude dann nicht mehr regelmäßig parallel zur LOI wiederkehrt, sondern eher unregelmäßig verteilt ist, was zu einem eher homogenen RP führt, als zu einem periodischen RP?) und die andere schwingung erzeugt wegen ihrer eigenen periodizität immer noch wiederkehrende strukturen in der dominanten schwingung, bzw. in der superposition, die aber dann aus der interferenz kommen und zwar die periode und frequenz behalten, aber keine schöne sinus form mehr haben, (je nach stärke des unterschieds in amplitude (?und frequenz?)) aber eine kombination aus diagonalen und horizontalen und vertikalen sind (blumen, checkerboard, kreise usw.).
+\\
+typisches system: periodic systems
+\\
+Beispiel: periodisches system with two harmonic frequencies with frequency ratio of four
+\\
+**
+\\
+quasi-periodic: nie exakt wiederkehrend = system aus mehreren frequenzen mit irrationalem Verhältnis (wie \pi oder \sqrt{2})
+\\
+typisches system: quasi-periodic systems
+\\
+besipiel: quasi-periodisches system with two harmonic frequencies with irrational frequency ratio
+\\
+**
+\\
+fette punkte sind was??
+\\
+an bestimmten stellen nur 3 wiederkehrende strukturen zw. den großen diagonalen. why??
+%
+\item drift: egal welche strukturen, weg von der LOI werden sie weniger/schwächer
+\\
+typisches system: non-stationary systems with a trend
+\\
+Beispiel: non-stationäres system mit einem trend
+\\
+**
+%
+\item disrupted: seltene störungen, die weiße stellen erzeugen, aber meist sind diese störungen nicht so stark, dass sie die großen strukturen komplett zerstören, sondern eher kleine löcher in den großen strukturen erzeugen, aber die großen strukturen trotzdem noch erkennbar bleiben und meist kehren auch solche störungen wieder und dadurch kann man sie dann charakterisieren und behandeln.
+\\
+typisches system: disruptions
+\\
+beispiel: disrupted brownian motion (?stochastisches system mit einem trend und vielen störungen?)
+\\
+**
+%
+\item dann gibt es noch small scale patterns/structures (textur) (single dots, diagonal lines as well as vertical and horizontal lines und die kombination von vertikalen und horizontalen linien formt OFFENKUNDIG (why??) rechteckige clusters of recurrence/schwarzen punkten (malte??) und sogar bowed/gebogene linien können auftreten (und das alles zusammen dann sogar blumen und stuff (Fig.5B)))
+\\
+\rightarrow small scale structures sind die bausteine und large scale structures der bauplan!?!
+%
+\item single dots: wenn zustände selten sind (??),  zustände nur für sehr kurze zeit bestehen oder stark fluktuieren
+%
+\item diagonal lines parallel zu der LOI: "wir haben eine trajektorie in welcher zeitlich unmittelbar aufeinanderfolgende punkte auch phasenräumlich unmittelbar aufeinander folgen, für diagonalen parallel zur LOI."\\
+gilt, wenn wir die segmente der trajektorie i = j+1 ansehen. Aber wir können ja auch i = 1 und j = 30 betrachten und dort eine diagonale finden!\\
+z.b. bei i=1 und j = 2 startet eine linie und dann ist das ein system mit periode 4 zeitschritte, demnach haben wir dann bei i= 1 und j = 6 die nächste parallele linie!
+\\
+\rightarrow wenn es senkrecht zur LOI diagonale gibt, dann meist inappropriate embedding oder zeitumkehrinvarianz
+%
+\item vertikale (horizontale) linien: markiert zeitintervalle, in welchen der zustand sich nicht ändert oder sich nur sehr langsam ändert (der zustand ist trapped für eine gewisse zeit).
+\\
+typical behaviour of laminar states (intermittency) ??
+%
+\item bowed lines/gebogene linien: diagonalen die nicht immer/nicht alle/nicht an allen stellen parallel zur LOI verlaufen aber eben mal steigung größer 1/45° und mal kleiner-, also schneller oder langsamer 
 }
-
