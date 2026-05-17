@@ -399,6 +399,22 @@ characteristic gaps in the recurrence plot, those appearances depend on the modu
 %
 ### 01 h : 40 min (seit dem letzten Zeitstempel)
 %
+# 17.05.2026
+%
+## Code von Norbert anfangen zu verstehen und benutzen:
+%
+\item Setup:\\
+ Code clonen mit sourcetree
+\rightarrow Julia installieren in microsoft store
+\rightarrow in VSC extension "Julia" installieren
+\rightarrow environment erstellen für gesamte bchelorarbeit
+\rightarrow Code von Norbert anfangen zu verstehen und benutzen
+%
+\item VErstehen, welche Datei der Hauptcode sit und PLan für das weitere VOrgehen.
+%
+### 02 h : 16 min (seit dem letzten Zeitstempel)
+%
+
 ## 3.2.4 -Influence of embedding on the structures in RPs:
 %
 \item 
