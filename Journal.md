@@ -283,5 +283,123 @@ z.b. bei i=1 und j = 2 startet eine linie und dann ist das ein system mit period
 \\
 typical behaviour of laminar states (intermittency) ??
 %
-\item bowed lines/gebogene linien: diagonalen die nicht immer/nicht alle/nicht an allen stellen parallel zur LOI verlaufen aber eben mal steigung größer 1/45° und mal kleiner-, also schneller oder langsamer 
+### 04 h : 30 min (seit dem letzten Zeitstempel)
+%
+# 12.05.2026
+%
+## 3.2.3 - small structures noch beenden (bowed lines) und Rest:
+%
+\item bowed lines/gebogene linien: diagonalen die nicht immer/nicht alle/nicht an allen stellen parallel zur LOI verlaufen, aber mal steigung größer 1/45° und mal kleiner- sind/haben. Das kommt zustadne, da die perioden/durchläufe der periodischen bewegung, mit/die bowed/gekrümmte/n linienim RP /erzeugen, in einem Zeitschritt (zeit zwischen zwei messungen) >1 zustände durchlaufen. wobei es eine referenzdiagonale braucht, welche parallel zur LOI verläuft und definiert, welche Zustände in jedem Zeitschritt ab beginn einer periode durchlaufen werden, wenn die entsprechende diagonale parallel zur LOI verläuft.
+\\
+Gemini: \\
+Bowed Lines (gebogene Linien): > Gebogene Linien sind zusammenhängende Strukturen im Recurrence Plot, deren Steigung nicht konstant ist, sondern sich entlang der Linie ändert (mal größer, mal kleiner als 1 bzw. 45°).
+Physikalische Ursache: Sie entstehen durch sogenanntes Time Warping (zeitliche Verzerrung). Das bedeutet, das System durchläuft in einem Zeitintervall $i$ zwar eine ähnliche Abfolge von Phasenraum-Zuständen wie in einem früheren Zeitintervall $j$, jedoch mit einer veränderten relativen Entwicklungsgeschwindigkeit (es beschleunigt oder verzögert im direkten Vergleich).
+\\
+Norbert: \\
+Bowed lines are lines with a non-constant slope. The shape of a bowed line depends on the local time relationship
+between the corresponding close trajectory segments (cf. Eq. (17)).
+\\\\
+Beispiel: \\
+Du bist verdammt nah dran, du hast den Knoten im Kopf fast gelöst! Deine schrittweise Rechnung ist großartig, aber du stolperst auf den letzten Metern über einen kleinen Denkfehler bezüglich der „Fülle“ (Dicke der Linie) und der tatsächlichen Steigung.
+
+Lass uns exakt dein Beispiel nehmen und das Rästel in einer simplen Matrix auflösen.
+
+ Der Aufbau (Dein Beispiel, etwas aufgeräumt)
+
+* **Das System (Phasenraum):** Es gibt 5 Stationen: **A $\rightarrow$ B $\rightarrow$ C $\rightarrow$ D $\rightarrow$ E**.
+* **Das $\epsilon$-Kriterium:** Um es klar zu machen, sagen wir: Ein Punkt ist nur schwarz, wenn es exakt derselbe Buchstabe ist (Distanz 0) oder der direkte Nachbar (A ist nah an B, aber A ist **weit weg** von C).
+* **Die langsame Periode (Woche 1, X-Achse $j$):** Tag 1=A, Tag 2=B, Tag 3=C, Tag 4=D, Tag 5=E.
+* **Die schnelle Periode (Woche 2, Y-Achse $i$):** Das System "rennt".
+Tag 6=A, Tag 7=C, Tag 8=E. *(B und D überspringen wir, wie du völlig richtig sagst!)*
+
+ Jetzt zeichnen wir die Matrix (Das RP)
+
+Wir vergleichen jetzt die schnelle Woche 2 (Zeilen) mit der langsamen Woche 1 (Spalten). Wir suchen die **perfekten Treffer** (den Kern der Linie):
+
+* **Tag 6 (Zustand A):** Wo war das System in Woche 1 bei A? An Tag 1!
+$\rightarrow$ Perfekter schwarzer Punkt bei Koordinate **(Spalte 1, Zeile 6)**.
+* **Tag 7 (Zustand C):** Wo war das System in Woche 1 bei C? An Tag 3!
+$\rightarrow$ Perfekter schwarzer Punkt bei Koordinate **(Spalte 3, Zeile 7)**.
+* **Tag 8 (Zustand E):** Wo war das System in Woche 1 bei E? An Tag 5!
+$\rightarrow$ Perfekter schwarzer Punkt bei Koordinate **(Spalte 5, Zeile 8)**.
+
+ Die Auflösung: Wo kommt die Steigung her?
+
+Verbinde jetzt mal geistig diese drei perfekten Treffer-Punkte: **(1,6) $\rightarrow$ (3,7) $\rightarrow$ (5,8)**.
+
+* Um vom ersten zum zweiten Punkt zu kommen, gehst du **2 Schritte nach rechts** (Spalte 1 zu 3), aber nur **1 Schritt nach oben** (Zeile 6 zu 7).
+* Die Steigung dieser Linie ist $\Delta y / \Delta x = 1 / 2 = \mathbf{0.5}$.
+
+**BÄM! Da ist deine schräge Linie (Steigung ungleich 1)!**
+
+ Was ist mit der "Fülle" (den Kreuztreffern)?
+
+Du hast völlig recht: An Tag 6 (Zustand A) ist auch Tag 2 (Zustand B) noch im $\epsilon$-Radius. Es gibt also auch einen Punkt bei **(2,6)**.
+Und an Tag 7 (Zustand C) sind B und D im Radius. Also gibt es Punkte bei **(2,7)** und **(4,7)**.
+
+**Das ist die Antwort auf deine letzte Frage:**
+Die "Fülle in die eine oder andere Richtung" (die Kreuztreffer wie B-C oder A-B) macht die Linie **fett und dick**. Das ist die $\epsilon$-Röhre (tube).
+Aber die **Steigung** der Linie wird *nicht* durch diese Fülle bestimmt, sondern dadurch, dass sich die Koordinaten der *perfekten Kern-Treffer* (A-A, C-C, E-E) verschieben, weil die Y-Achse die Zustände schneller "abhakt" als die X-Achse!
+
+Hier ist ein interaktives Widget, in dem du genau dieses Phänomen (Time Warping) selbst steuern kannst. Probier es aus, dann macht es sofort Klick:
+
+**Dein Fazit:**
+Eine Steigung ungleich 1 bedeutet: "Die Y-Achse rennt durch die Buchstaben, während die X-Achse bummelt (oder umgekehrt)." Die $\epsilon$-Treffer machen die Linie nur breit genug, damit wir sie trotz der diskreten Tages-Pixel als zusammenhängende Struktur erkennen können.
+%
+\item linienstrukturen wichtig. sagen aus wie lange welche segmente der phasenraum trajektorie wann nah beieinander/kongruent sind. physikalische konklusionen: vorhersagbarkeit (weil wenn ich weiß was jetzt passiert, dann weiß ich das nahezu/tatsächlich selbe passiert nochmal in 3 tagen) und periodizität des systems 
+%
+\item Steigung b(t): \\
+Steigung $b = 1$ (45° Diagonale):Text: $T_1 = T_2$Bedeutung: Beide Abschnitte entwickeln sich exakt gleich schnell. (Das normale, stationäre System).\\
+Steigung $b = \text{konstant, aber ungleich } 1$:Bedeutung: Beide laufen stetig, aber das eine Segment ist konstant schneller/langsamer als das andere (z.B. doppeltes Tempo).\\
+Steigung $b(t)$ ändert sich ("bowed lines"):Bedeutung: Eines der Systeme beschleunigt oder bremst ab, während das andere normal weiterläuft (Time Warping).\\
+Steigung $b = \infty$ (Vertikale Linie):Text: $T_2 \to 0$ ("the second trajectory segment evolves infinitely slow")Bedeutung: Das zweite Segment bewegt sich "unendlich langsam" im Vergleich zum ersten. Das ist der mathematische Beweis für Stagnation / Laminarität! Das System friert ein, während die Zeit weiterläuft.
+\\
+\Rightarrow Steigung der Linie = Wie schnell entwickelt sich der jetzige Zustand relativ zur Vergangenheit? (Bei Vertikalen = Stagnation)\\
+\rightarrow Anwendung für CRPs (bowed lines gerade machen, wenn eines der zwei systeme systematisch schneller läuft z.B.)
+%
+\item LOI rausnehmen im RP kann nützlich sein zur QUantifikation von RPs (/zur RQA)
+%
+\item Table 1
+Typical patterns in RPs and their meanings
+Pattern Meaning
+(1) Homogeneity The process is stationary
+(2) Fading to the upper left and lower right corners Non-stationary data; the process contains a trend or a drift
+(3) Disruptions (white bands) Non-stationary data; some states are rare or far from the normal;
+transitions may have occurred
+(4) Periodic/quasi-periodic patterns Cyclicities in the process; the time distance between periodic patterns
+(e.g. lines) corresponds to the period; different distances between
+long diagonal lines reveal quasi-periodic processes
+(5) Single isolated points Strong fluctuation in the process; if only single isolated points occur,
+the process may be an uncorrelated random or even anti-correlated
+process
+(6) Diagonal lines (parallel to the LOI) The evolution of states is similar at different epochs; the process
+could be deterministic; if these diagonal lines occur beside single
+isolated points, the process could be chaotic (if these diagonal lines
+are periodic, unstable periodic orbits can be observed)
+(7) Diagonal lines (orthogonal to the LOI) The evolution of states is similar at different times but with reverse
+time; sometimes this is an indication for an insufficient embedding
+(8) vertical and horizontal lines/clusters Some states do not change or change slowly for some time; indication
+for laminar states
+(9) Long bowed line structures The evolution of states is similar at different epochs but with different
+velocity; the dynamics of the system could be changing
+%
+\item RQA klappt nur wie vorgesehen und bisher beschrieben, wenn die charakteristische frequenzen (??) des/der systems/e deutlich niedriger sind, als die sampling frequenz of their observation/messfrequenz?!?
+%
+\item  The previous statements hold for systems, whose characteristic frequencies are much lower than the sampling
+frequency of their observation. If the sampling frequency is only one magnitude higher than the system’s frequencies,
+and their ratio is not an integer, some recurrences will not be detected [61]. This discretisation effect yields in extended
+characteristic gaps in the recurrence plot, those appearances depend on the modulations of the systems frequencies
+(Fig. 7).
+%
+\item Theiler window ergibt für RQA sinn, weill wir nur wiederkehr wollen, nicht kontinuierlichkeit der entwicklung des systems (tangential motion (trägheit?!?))
+\\
+\rightarrow auch in den rekurrenzstrukturen die A nahe B punkte irgendwie rausnehmen (teil der skeletonisation??) ?? / nur die echten rekurrenzen A nahe A erhalten ??
+\\
+\rightarrow für visuelle inspektion theiler fenster durchaus drin lassen
+%
+### 01 h : 40 min (seit dem letzten Zeitstempel)
+%
+## 3.2.4 -Influence of embedding on the structures in RPs:
+%
+\item 
 }
