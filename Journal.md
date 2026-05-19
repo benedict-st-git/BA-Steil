@@ -414,7 +414,54 @@ characteristic gaps in the recurrence plot, those appearances depend on the modu
 %
 ### 02 h : 16 min (seit dem letzten Zeitstempel)
 %
-
+# 19.05.2026
+%
+## allg Julia und an beispiel example_calculation.jl von norbert:
+%
+\item 5 regeln/unterscheide/anpassungen von python nach Julia:\\
+\rightarrow index beginnt mit 1 und endet mit end statt 0 und -1\\
+\rightarrow for loops goated/statt vektoren (numpy)\\
+\rightarrow Ausrufezeichen in Funktionsnamen bedeutet, dass die Funktion das Argument verändert (z.B. push! fügt ein Element zu einem Vektor (Argument) hinzu)\\
+\rightarrow using statt import; using Statistics in Julia ist so ähnlich wie from statistics import * in Python. Es lädt alle Funktionen des Pakets in deinen Namensraum (??).\\
+\rightarrow Kein echtes OOP (??): In Python schreibst du array.shape oder array.reshape(). Julia nutzt Multiple Dispatch. Du schreibst immer die Funktion zuerst: size(array) oder reshape(array, ...)
+%
+\item alles im terminal ausführen/REPL (Read-Eval-Print-Loop ist was im terminal gemacht wird)(so etwas wie das JUlia-kompatible Terminal??)
+%
+\item zellen mit # %%
+%
+\item Coding/Syntax: \\
+\rightarrow 
+function roessler!(du, u, p, t)
+    du[1] = -u[2] - u[3]
+    du[2] = u[1] + a * u[2]
+    du[3] = 0.2 + u[3] * (u[1] - 5.7)
+end
+\\
+Wenn roessler!(du, u, p, t) dann irgendwo steht, wird dann auch zu du ?? \rightarrow egal, weil die Funktion ja nur du ändern soll!!
+\\
+Weshalb kommt ein a vor und p und t nicht? \rightarrow a ist eine globale variable, die in der Funktion verwendet wird, aber nicht als Argument übergeben wird. p und t sind Argumente, die in der Funktion definiert sind, aber in diesem Fall nicht verwendet werden. Es könnte sein, dass sie für andere Funktionen oder Berechnungen benötigt werden, aber in dieser speziellen Funktion roessler! werden sie nicht verwendet.
+%
+\item der punkt um auf jedes element eines arrays anzuwenden. Liste irwie anders??
+%
+\item pro tips (siehe Gemini Jochen Klar "RQA Code verstehen und anwenden)
+\\
+hilfe modus mit ?
+\\
+debugging @show, um variablen anzuzeigen
+\\
+size(x) und typeof(x), um typ herauszufinden einer var
+\\
+slicing macht kopie, stattdessen @views ?diff? variablenname[?start?(or 1?):end]
+%
+\item austauschen/überschreiben besser als neu: L_local = 0 macht neues L_local aus nullen (je nach typ/dimension von altem L_local), aber L_local .= 0 überschreibt/ersetzt jedes einzelne und ist schneller (massiv)?!?
+%
+\item env in Julia mit "]" und "activate ." \rightarrow ] und add packagename (werden global gespeichert) \rightarrow ] und instantiate alles wie in manifest.toml beschrieben installieren \rightarrow project.toml welche pakete und manifest.toml welche versionen und wie und wozu
+%
+## nun an example_calculation.jl um erstmal zu verstehen was passiert und dann reinschauen wie es passiert:
+%
+### 01 h : 24 min (seit dem letzten Zeitstempel)
+\item 
+%
 ## 3.2.4 -Influence of embedding on the structures in RPs:
 %
 \item 
