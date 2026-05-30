@@ -1,28 +1,10 @@
 """
-    Sampling 1: 
+    Sampling 1: memory sampling (RPLL(RPLineLengths) als Basis))
     -
     xxxx
 """
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-function get_hist_diagonal_sampled(x::AbstractMatrix{T}, ε::T, M::Int) where {T<:AbstractFloat}
+function get_hist_diagonal_memory_sampled(x::AbstractMatrix{T}, ε::T, M::Int) where {T<:AbstractFloat}
     N, dim = size(x)                  # Number of observations and variables
     L_local = zeros(Int, N)           # Histogram for line lengths
     L_local_old = zeros(Int, N)       # Histogram for line lengths
@@ -44,9 +26,14 @@ function get_hist_diagonal_sampled(x::AbstractMatrix{T}, ε::T, M::Int) where {T
     sum_n2_L = 0.0   # sum(n * L[n]) for n >= 2
     sum_L2   = 0.0   # sum(L[n]) for n >= 2
     
+    visited_gauß_idxs = falses(total_pairs) # To avoid calculating distances for the same pair multiple times
     while count < M
         countAll += 1                 # Count number of searches
         idx = rand(1:total_pairs)     # Random start pair (i,j) in linear notation
+        if visited_gauß_idxs[idx]
+            continue # Skip already processed idxs
+        end
+        visited_gauß_idxs[idx] = true # Mark this idx as processed
         i_start = ceil(Int, (1 + sqrt(1 + 8*idx)) / 2)     # Translate linear index to i
         j_start = idx - (i_start - 1) * (i_start - 2) ÷ 2  # Translate linear index to j
 
