@@ -460,7 +460,56 @@ slicing macht kopie, stattdessen @views ?diff? variablenname[?start?(or 1?):end]
 ## nun an example_calculation.jl um erstmal zu verstehen was passiert und dann reinschauen wie es passiert:
 %
 ### 01 h : 24 min (seit dem letzten Zeitstempel)
-\item 
+\item weshalb klapppt das nicht mit ] und activate . und dann instantiate?
+### 00 h : 9 min (seit dem letzten Zeitstempel)
+%
+# 21.05.2026
+%
+## example_calculation.jl verstehen:
+%
+\item mehrere abbruchkriterien sinnvoll? in example_calc hat Norbert nur anzahl an linien genommen, nicht z.B. (auch noch) güte der rqa größen, also konvergenzkriterium (wenn sihc ein rqa wert nicht mehr über eine gewisse anzahl an iterationen über ein gewisse differenz zu den vorherigen werten ändert)
+%
+\item Gemini: "Warum 0.2 * N? Das ist empirisch für diesen Testlauf gewählt. Es bedeutet: "Suche so lange, bis du eine Anzahl an Linien gefunden hast, die 20 % der Anzahl unserer Datenpunkte ($N=10.000$) entspricht (also 2.000 Linien)." Er hat im Paper gezeigt, dass bei dieser Menge die Fehlerquote des Samplings bereits so klein ist, dass sich das Weitersuchen nicht mehr lohnt."
+\\
+\rightarrow also eig für abbruchkriterium einmal über güte defineiren und dann wenn man für Güte einen festen prozentsatz von der gesamtanzahl an zeitschritten bei gewisser größe von \Delta T hat, immer M fest/konstant mit diesem prozentsatz*N definieren??
+%
+## fertig mit example_calc!! nun RPLineLengths (nur sampled erst ein Mal/zunächst??) und dann get_hist_diagonal_sampled selber schreiben (unterschiedliche formen bis zur perfekten) mit norberts rqa und dann rqa auch selber (untershciedliche formen bis zur perfekten)
+%
+\item unterscheidliche formen von perfektem get_hist_diagonal_sampled (und rqa), je nach system (kann man system in wenige (einstellige anzahl) kategorien einteilen??)??
+\\
+\rightarrow also am ende der bachelorarbeit nicht eine version als perfekte von get_hist_diagonal_samplde und rqa, aber für jede systemkategorie (also basically zustands/bewegungsgleichung/phasenraumtrajektorie ?!?) eine andere version jeweils??
+%
+\item Norbert hatte gesagt, im 2026 paper glaube, woRP ist für kleine RPs "besser" (schneller und akkurater?!?) als sampled. 
+\\
+\Rightarrow bekomme ich das besser hin??
+%
+### 04 h : 45 min (seit dem letzten Zeitstempel)
+%
+# 28.05.2026
+%
+## get_hist_diagonal_sampled weiter verstehen (letztes mal glaube keine notizen hier gemacht) - bisher setup - nun die while schleife/schleifenschachtelung:
+%
+\item setup (eigentlich klar, vlt später noch notizen)
+%
+## schleife:
+%
+\item naives sampling nicht so wie erwartet. \\
+\rightarrow einfache beschränkungen: 1. total pairs/nummerierung der matrixelemente und nur im unteren dreieck\\
+2. nur die elemente/punkte werden naiv gesampled\\
+3. auflösen/übersetzen nach/in i und j (zeilen und spalten)\\
+3.1 mit
+%
+### 01 h : 27 min (seit dem letzten Zeitstempel)
+%
+# 29.05.26
+%
+## immer noch die schleife
+%
+\item was übernehme ich von norbert und was selber neu?
+%
+\item wie prüfe ich und code ich: nur sampling schreiben und nur gegen sampling von norbert vergleichen??
+%
+### 01 h : 50 min (seit dem letzten Zeitstempel)
 %
 ## 3.2.4 -Influence of embedding on the structures in RPs:
 %
