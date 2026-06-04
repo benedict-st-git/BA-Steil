@@ -239,7 +239,7 @@ function get_hist_diagonal_sampled(x::AbstractMatrix{T}, ε::T, M::Int) where {T
 
                     # Break if difference is not changing for last K iterations
                     if rel_det < tol && rel_l < tol
-                        println("Converged after $count samples (rel_det=$rel_det, rel_l=$rel_l)")
+                        # println("Converged after $count samples (rel_det=$rel_det, rel_l=$rel_l)")
                         break
                     end
                 end

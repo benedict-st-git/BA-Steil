@@ -24,9 +24,7 @@ a = 0.2                               # control parameter in the Roessler system
 u0 = [-6.2668, -1.3413, 0.0166]       # initial conditions
 
 prob = ODEProblem(roessler!, u0, (0.0, (N + N_trans - 1) * ΔT)) # problem statement for the solver
-# %%
-prob                                  # was ist prob? 
-# %%
+
 sol = solve(prob, Tsit5(), saveat=ΔT) # solving ODEs
 x = transpose(hcat(sol.u...))         # get solution as a matrix
 x = x[N_trans+1:end, :]               # remove transients
