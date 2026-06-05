@@ -57,6 +57,7 @@ M = Int(round(0.2 * N))               # number of random subsamples
 
 b_mem = @benchmark get_hist_diagonal_memory_sampled($x, $ε, $M); # benchmarking w/o seed
 b_norbert = @benchmark get_hist_diagonal_sampled($x, $ε, $M); 
+b_stratified = @benchmark get_hist_diagonal_stratified_sampled($x, $ε, $M);
 
 runtime_mem    = median(b_mem.times) / 1e6 # times ist in Nanosekunden, Umrechnung in Millisekunden
 allocations_mem = b_mem.allocs
@@ -66,13 +67,16 @@ runtime_norbert    = median(b_norbert.times) / 1e6 # times ist in Nanosekunden, 
 allocations_norbert = b_norbert.allocs
 storage_norbert    = b_norbert.memory / 1024       # memory ist in Bytes, Umrechnung in KiB
 
-
+runtime_stratified     = median(b_stratified.times) / 1e6 
+allocations_stratified = b_stratified.allocs            
+storage_stratified     = b_stratified.memory / 1024       
 
 
 # With seed
 
 b_mem = @benchmark get_hist_diagonal_memory_sampled($x, $ε, $M) setup=(Random.seed!(42)) evals=1; # benchmarking with seed and evals =1 assuming that the algo takes long enough in one calculation anyways
 b_norbert = @benchmark get_hist_diagonal_sampled($x, $ε, $M) setup=(Random.seed!(42)) evals=1; 
+b_stratified = @benchmark get_hist_diagonal_stratified_sampled($x, $ε, $M) setup=(Random.seed!(42)) evals=1; 
 
 runtime_seed_mem    = median(b_mem.times) / 1e6 # times ist in Nanosekunden, Umrechnung in Millisekunden und median, wegen Ausreißern (wegen hintergrundprozessen auf dem selben PC)
 allocations_seed_mem = b_mem.allocs
@@ -82,15 +86,23 @@ runtime_seed_norbert    = median(b_norbert.times) / 1e6 # times ist in Nanosekun
 allocations_seed_norbert = b_norbert.allocs
 storage_seed_norbert    = b_norbert.memory / 1024       # memory ist in Bytes, Umrechnung in KiB
 
+runtime_seed_stratified     = median(b_stratified.times) / 1e6 
+allocations_seed_stratified = b_stratified.allocs            
+storage_seed_stratified     = b_stratified.memory / 1024       
+
+
+# Seed-rqa-vals
 Random.seed!(42)
 histL_seed_mem, countAll_seed_mem = get_hist_diagonal_memory_sampled(x, ε, M)
-
 rqa_seed_mem = rqa(histL_seed_mem, countAll_seed_mem)
 
 Random.seed!(42)
 histL_seed_norbert, countAll_seed_norbert = get_hist_diagonal_sampled(x, ε, M)  
-
 rqa_seed_norbert = rqa(histL_seed_norbert, countAll_seed_norbert)
+
+Random.seed!(42) 
+histL_seed_stratified, countAll_seed_stratified = get_hist_diagonal_stratified_sampled(x, ε, M) 
+rqa_seed_stratified = rqa(histL_seed_stratified, countAll_seed_stratified) 
 
 # ====================================================================
 # Benchmarking non-random sampling approaches
@@ -108,6 +120,10 @@ runtime_woRP    = median(b_woRP.times) / 1e6 # times ist in Nanosekunden, Umrech
 allocations_woRP = b_woRP.allocs
 storage_woRP    = b_woRP.memory / 1024       # memory ist in Bytes, Umrechnung in KiB
 
+# woRP-rqa-vals
+histL_woRP = get_hist_diagonal_woRP(x, ε); # baseline/correct-vals
+rqa_woRP = rqa(histL_woRP, N * (N - 1) / 2)
+
 # ====================================================================
 # RQA measures and countALl for random-sampling w/o seed
 # ====================================================================
@@ -115,78 +131,97 @@ storage_woRP    = b_woRP.memory / 1024       # memory ist in Bytes, Umrechnung i
 # Loop to determine countAll mean, because benchmark does not save values and seed gives always same vals?!
 countAll_history_memory_samp = zeros(Int, 1000)
 countAll_history_norbert = zeros(Int, 1000)
+countAll_history_stratified = zeros(Int, 1000) 
 
 # Loop for mean vals of RR, DET, L, ENTR (w/o seed)
 
-histL_woRP = get_hist_diagonal_woRP(x, ε); # baseline/correct-vals
-rqa_woRP = rqa(histL_woRP, N * (N - 1) / 2)
-
-
 RR_history_memory_samp = zeros(Float64, 1000)
 RR_history_norbert = zeros(Float64, 1000)
+RR_history_stratified = zeros(Float64, 1000) 
 
 DET_history_memory_samp = zeros(Float64, 1000)
 DET_history_norbert = zeros(Float64, 1000)
+DET_history_stratified = zeros(Float64, 1000) 
 
 L_history_memory_samp = zeros(Float64, 1000)
 L_history_norbert = zeros(Float64, 1000)
+L_history_stratified = zeros(Float64, 1000) 
 
 ENTR_history_memory_samp = zeros(Float64, 1000)
 ENTR_history_norbert = zeros(Float64, 1000)
+ENTR_history_stratified = zeros(Float64, 1000) 
 
 for n in 1:1000
     histL_mem, N_mem = get_hist_diagonal_memory_sampled(x, ε, M);
     histL_norbert, N_norbert = get_hist_diagonal_sampled(x, ε, M);
+    histL_strat, N_strat = get_hist_diagonal_stratified_sampled(x, ε, M); 
 
     countAll_history_memory_samp[n] = N_mem
     countAll_history_norbert[n] = N_norbert
+    countAll_history_stratified[n] = N_strat 
 
     rqa_mem = rqa(histL_mem, N_mem)
     rqa_norbert = rqa(histL_norbert, N_norbert)
+    rqa_strat = rqa(histL_strat, N_strat) 
 
     RR_history_memory_samp[n] = rqa_mem[1]
     RR_history_norbert[n] = rqa_norbert[1]
+    RR_history_stratified[n] = rqa_strat[1] 
 
     DET_history_memory_samp[n] = rqa_mem[2]
     DET_history_norbert[n] = rqa_norbert[2]
+    DET_history_stratified[n] = rqa_strat[2] 
 
     L_history_memory_samp[n] = rqa_mem[3]
     L_history_norbert[n] = rqa_norbert[3]
+    L_history_stratified[n] = rqa_strat[3] 
 
     ENTR_history_memory_samp[n] = rqa_mem[4]
     ENTR_history_norbert[n] = rqa_norbert[4]
+    ENTR_history_stratified[n] = rqa_strat[4] 
 end
+
+# statistics
 
 mean_countAll_memory_samp = mean(countAll_history_memory_samp)
 mean_countAll_norbert = mean(countAll_history_norbert)
+mean_countAll_stratified = mean(countAll_history_stratified) 
 
 std_countAll_memory_samp = std(countAll_history_memory_samp)
 std_countAll_norbert = std(countAll_history_norbert)
-
+std_countAll_stratified = std(countAll_history_stratified) 
 
 mean_RR_memory_samp = mean(RR_history_memory_samp)
 mean_RR_norbert = mean(RR_history_norbert)
+mean_RR_stratified = mean(RR_history_stratified) 
 
 mean_DET_memory_samp = mean(DET_history_memory_samp)
 mean_DET_norbert = mean(DET_history_norbert)
+mean_DET_stratified = mean(DET_history_stratified) 
 
 mean_L_memory_samp = mean(L_history_memory_samp)
 mean_L_norbert = mean(L_history_norbert)
+mean_L_stratified = mean(L_history_stratified) 
 
 mean_ENTR_memory_samp = mean(ENTR_history_memory_samp)
 mean_ENTR_norbert = mean(ENTR_history_norbert)
+mean_ENTR_stratified = mean(ENTR_history_stratified) 
 
 std_RR_memory_samp = std(RR_history_memory_samp)
 std_RR_norbert = std(RR_history_norbert)
+std_RR_stratified = std(RR_history_stratified) 
 
 std_DET_memory_samp = std(DET_history_memory_samp)
 std_DET_norbert = std(DET_history_norbert)
+std_DET_stratified = std(DET_history_stratified) 
 
 std_L_memory_samp = std(L_history_memory_samp)
 std_L_norbert = std(L_history_norbert)
+std_L_stratified = std(L_history_stratified) 
 
 std_ENTR_memory_samp = std(ENTR_history_memory_samp)
 std_ENTR_norbert = std(ENTR_history_norbert)
+std_ENTR_stratified = std(ENTR_history_stratified) 
 
 # ====================================================================
 # Ausgaben
@@ -202,7 +237,7 @@ println("DET: ", mean_DET_memory_samp, " ± ", std_DET_memory_samp)
 println("L: ", mean_L_memory_samp, " ± ", std_L_memory_samp)
 println("ENTR: ", mean_ENTR_memory_samp, " ± ", std_ENTR_memory_samp)
 
-println("=== PERFORMANCE W/O seed - norberts sampling ===")
+println("\n=== PERFORMANCE W/O seed - norberts sampling ===")
 println("runtime:    ", round(runtime_norbert, digits=2), " ms")
 println("allocations: ", allocations_norbert)
 println("storage:    ", round(storage_norbert, digits=2), " KiB")
@@ -212,7 +247,17 @@ println("DET: ", mean_DET_norbert, " ± ", std_DET_norbert)
 println("L: ", mean_L_norbert, " ± ", std_L_norbert)
 println("ENTR: ", mean_ENTR_norbert, " ± ", std_ENTR_norbert)
 
-println("=== PERFORMANCE WITH seed - memory sampling ===")
+println("\n=== PERFORMANCE W/O seed - stratified sampling ===") 
+println("runtime:    ", round(runtime_stratified, digits=2), " ms")
+println("allocations: ", allocations_stratified)
+println("storage:    ", round(storage_stratified, digits=2), " KiB")
+println("countAll: ", round(mean_countAll_stratified, digits=2), " ± ", round(std_countAll_stratified, digits=2))
+println("RR: ", mean_RR_stratified, " ± ", std_RR_stratified)
+println("DET: ", mean_DET_stratified, " ± ", std_DET_stratified)
+println("L: ", mean_L_stratified, " ± ", std_L_stratified)
+println("ENTR: ", mean_ENTR_stratified, " ± ", std_ENTR_stratified)
+
+println("\n=== PERFORMANCE WITH seed - memory sampling ===")
 println("runtime:    ", round(runtime_seed_mem, digits=2), " ms")
 println("allocations: ", allocations_seed_mem)
 println("storage:    ", round(storage_seed_mem, digits=2), " KiB")
@@ -222,7 +267,7 @@ println("DET: ", rqa_seed_mem[2])
 println("L: ", rqa_seed_mem[3])
 println("ENTR: ", rqa_seed_mem[4])
 
-println("=== PERFORMANCE WITH seed - norberts sampling ===")
+println("\n=== PERFORMANCE WITH seed - norberts sampling ===")
 println("runtime:    ", round(runtime_seed_norbert, digits=2), " ms")
 println("allocations: ", allocations_seed_norbert)
 println("storage:    ", round(storage_seed_norbert, digits=2), " KiB")
@@ -232,7 +277,17 @@ println("DET: ", rqa_seed_norbert[2])
 println("L: ", rqa_seed_norbert[3])
 println("ENTR: ", rqa_seed_norbert[4])
 
-println("=== PERFORMANCE - woRP ===")
+println("\n=== PERFORMANCE WITH seed - stratified sampling ===") 
+println("runtime:    ", round(runtime_seed_stratified, digits=2), " ms")
+println("allocations: ", allocations_seed_stratified)
+println("storage:    ", round(storage_seed_stratified, digits=2), " KiB")
+println("countAll:    ", countAll_seed_stratified)
+println("RR: ", rqa_seed_stratified[1])
+println("DET: ", rqa_seed_stratified[2])
+println("L: ", rqa_seed_stratified[3])
+println("ENTR: ", rqa_seed_stratified[4])
+
+println("\n=== PERFORMANCE - woRP (BASELINE) ===")
 println("runtime:    ", round(runtime_woRP, digits=2), " ms")
 println("allocations: ", allocations_woRP)
 println("storage:    ", round(storage_woRP, digits=2), " KiB")

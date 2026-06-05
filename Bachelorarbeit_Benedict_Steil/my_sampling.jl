@@ -126,7 +126,7 @@ Sampling 2: Stratified Sampling (RPLL(RPLineLengths) als Basis - no combinations
     xxxx
 """
 
-function get_hist_diagonal_sampled(x::AbstractMatrix{T}, ε::T, M::Int) where {T<:AbstractFloat}
+function get_hist_diagonal_stratified_sampled(x::AbstractMatrix{T}, ε::T, M::Int) where {T<:AbstractFloat}
     N, dim = size(x)                  # Number of observations and variables
     L_local = zeros(Int, N)           # Histogram for line lengths
     L_local_old = zeros(Int, N)       # Histogram for line lengths
@@ -149,11 +149,21 @@ function get_hist_diagonal_sampled(x::AbstractMatrix{T}, ε::T, M::Int) where {T
     sum_L2   = 0.0   # sum(L[n]) for n >= 2
     
     box_length_dyn = total_pairs / M
+    current_box = 0
 
     while count < M
 
-        lower_bound = Int(floor((count * box_length_dyn) + 1))
-        upper_bound = Int(floor((count+1) * box_length_dyn))
+        current_box += 1
+        if current_box > M
+            current_box = 1
+        end
+
+        lower_bound = Int(floor((current_box-1) * box_length_dyn)) + 1
+        upper_bound = Int(floor(current_box * box_length_dyn))
+
+        # safety for M bigger total_pairs and other extrema
+        upper_bound = min(upper_bound, total_pairs)
+        lower_bound = min(lower_bound, upper_bound)
 
         countAll += 1                 # Count number of searches
         idx = rand(lower_bound:upper_bound)     # Random start pair (i,j) in linear notation
@@ -161,6 +171,7 @@ function get_hist_diagonal_sampled(x::AbstractMatrix{T}, ε::T, M::Int) where {T
         j_start = idx - (i_start - 1) * (i_start - 2) ÷ 2  # Translate linear index to j
         #println("i: ", i_start, "  j: ", j_start)
         # Check if R(i_start,j_start) = 1 (start point)
+
         D2 = zero(T)
         @inbounds for k in 1:dim
             D2 += (x[i_start,k] - x[j_start,k])^2
@@ -220,14 +231,7 @@ function get_hist_diagonal_sampled(x::AbstractMatrix{T}, ε::T, M::Int) where {T
                     end
                 end
             end
-        end  
-        
-        if upper_bound >= total_pairs && count < M
-            # println("Warning: Reached end of index range before finding M lines. Found $count lines after checking all pairs.")
-            # break
-
-        end
-        
+        end          
     end
 
     return L_local, countAll
