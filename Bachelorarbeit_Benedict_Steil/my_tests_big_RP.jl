@@ -5,7 +5,7 @@ using DifferentialEquations
 using DelayEmbeddings
 include("../Norberts_RQA_Code/RPLineLengths.jl")
 include("my_sampling.jl")
-
+# %%
 """
     Klasse 1 Systeme - Chaos (low- and high-dimensional)
     -
@@ -57,6 +57,7 @@ M = Int(round(0.2 * N))               # number of random subsamples
 
 b_mem = @benchmark get_hist_diagonal_memory_sampled($x, $ε, $M); # benchmarking w/o seed
 b_norbert = @benchmark get_hist_diagonal_sampled($x, $ε, $M); 
+#println("no seed:")
 b_stratified = @benchmark get_hist_diagonal_stratified_sampled($x, $ε, $M);
 
 runtime_mem    = median(b_mem.times) / 1e6 # times ist in Nanosekunden, Umrechnung in Millisekunden
@@ -76,6 +77,7 @@ storage_stratified     = b_stratified.memory / 1024
 
 b_mem = @benchmark get_hist_diagonal_memory_sampled($x, $ε, $M) setup=(Random.seed!(42)) evals=1; # benchmarking with seed and evals =1 assuming that the algo takes long enough in one calculation anyways
 b_norbert = @benchmark get_hist_diagonal_sampled($x, $ε, $M) setup=(Random.seed!(42)) evals=1; 
+#println("Seed:")
 b_stratified = @benchmark get_hist_diagonal_stratified_sampled($x, $ε, $M) setup=(Random.seed!(42)) evals=1; 
 
 runtime_seed_mem    = median(b_mem.times) / 1e6 # times ist in Nanosekunden, Umrechnung in Millisekunden und median, wegen Ausreißern (wegen hintergrundprozessen auf dem selben PC)
@@ -307,13 +309,13 @@ println("ENTR: ", rqa_woRP[4])
 # println("L: ", r0.L)
 # println("ENTR: ", r0.ENTR)
 # 
+# %%
 """
 Klasse 2 Systeme - Periodic ?(low- and high-dimensional)?
     -
     Tests 
 """
 
-# %%
 """
 
 """
