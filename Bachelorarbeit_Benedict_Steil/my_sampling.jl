@@ -425,12 +425,12 @@ end
 
 
 """
-Sampling 3: QMC sampling (RPLL(RPLineLengths) als Basis - no combinations))
+Sampling 3: QMC - sobol-sequenz - sampling (RPLL(RPLineLengths) als Basis - no combinations))
     -
     xxxx
 """
 
-function get_hist_diagonal_qmc_sampled(x::AbstractMatrix{T}, ε::T, M::Int) where {T<:AbstractFloat}
+function get_hist_diagonal_qmc_sobol_sampled(x::AbstractMatrix{T}, ε::T, M::Int) where {T<:AbstractFloat}
     N, dim = size(x)                  # Number of observations and variables
     L_local = zeros(Int, N)           # Histogram for line lengths
     L_local_old = zeros(Int, N)       # Histogram for line lengths
@@ -451,10 +451,19 @@ function get_hist_diagonal_qmc_sampled(x::AbstractMatrix{T}, ε::T, M::Int) wher
     sum_n_L  = 0.0   # sum(n * L[n]) for all n >= 1
     sum_n2_L = 0.0   # sum(n * L[n]) for n >= 2
     sum_L2   = 0.0   # sum(L[n]) for n >= 2
+
+    sobol_gen = SobolSeq(1)
+    skip(sobol_gen, 1)
+    sobol_val = Vector{Float64}(undef, 1)
     
     while count < M
         countAll += 1                 # Count number of searches
-        idx = rand(1:total_pairs)     # Random start pair (i,j) in linear notation
+
+        next!(sobol_gen, sobol_val)
+        val = sobol_val[1]
+        # val = next!(sobol_gen)[1]
+        idx = floor(Int, val*total_pairs + 1)     # Random start pair (i,j) in linear notation
+        idx = min(total_pairs, max(1, idx))
         i_start = ceil(Int, (1 + sqrt(1 + 8*idx)) / 2)     # Translate linear index to i
         j_start = idx - (i_start - 1) * (i_start - 2) ÷ 2  # Translate linear index to j
 

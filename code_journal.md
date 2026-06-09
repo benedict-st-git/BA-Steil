@@ -248,10 +248,20 @@ Und gerade das soll/will ich am Effizientesten machen
 \item für estimate_RR(....num_samples=??)=??\\
 pure MC/naives random sampling ohne linienverfolgung
 %
-### 02 h : 45 min (seit dem letzten Zeitstempel)
-%
 \item optimale anzahl an samples für estimate_RR ?? momentan samples = min(2000, max(1, Int(floor(0.1 * total_pairs)))) \Rightarrow allocatiosn deutlich und speicher etwas besser als Norberts ohne seed und identsich mit - zeit bei beiden deutlich schlechter - werte schlechter mit seed - hält mit/bisschen schlechter ohne seed - countAll gewinnt mit seed etwas und verliert ganz knapp ohne seed
 %
-###
+\ item jetze: Stratified Sampling war noch lange nicht fertig. ist halbwegs im selben bälleparadies wie Norberts, aber nun erst ein Mal keine Ideen mehr für verbesserungen ohne Kombinationen oder andere Aspekte des Codes anzugehen.
+%
+### 04 h : 01 min (seit dem letzten Zeitstempel)
+%
+# 09.06.2026
+%
+## Sampling 3: QMC verstehen
+%
+\item zunächst Sobol-Sequenz
+%
+\item noch nicht voll verstanden und bisher qmc-sobol sehr asche
+%
+### 01 h : 32 min (seit dem letzten Zeitstempel)
 %
 }
