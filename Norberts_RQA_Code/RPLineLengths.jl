@@ -278,11 +278,17 @@ function rqa(P, N)
 
     idx = findall(!iszero, P)         # Indices of non-zero histogram entries
 
-    # Recurrence Rate: ratio of recurrent points to total points
-    # Numerator:   total number of points in all lines (length * count)
-    # Denominator: total matrix points = N (isolated) + points in lines of length > 1
-    RR = sum((1:length(P)) .* P) / (N + sum(idx .* (P[idx] .- 1)))
-
+    if eltype(P) <: AbstractFloat
+    
+        RR = sum((1:length(P)) .* P) / N
+        
+    else    
+        # Recurrence Rate: ratio of recurrent points to total points
+        # Numerator:   total number of points in all lines (length * count)
+        # Denominator: total matrix points = N (isolated) + points in lines of length > 1
+        RR = sum((1:length(P)) .* P) / (N + sum(idx .* (P[idx] .- 1)))
+    end
+    
     # Determinism: fraction of recurrent points in lines of length >= 2
     DET = sum((2:length(P)) .* P[2:end]) / sum((1:length(P)) .* P)
 
