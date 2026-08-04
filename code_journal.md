@@ -1071,5 +1071,176 @@ ENTR: 3.864856330212997
 %
 \item LFboth optimieren: 
 \\
+WIE?? was ist falsch oder kannbesser gemahct werden??:
+\\
+%
+### 02 h : 33 min (seit dem letzten Zeitstempel)
+%
+# 04.08.2026
+%
+\item LFboth optimieren: 
+\\
+WIE?? was ist falsch oder kannbesser gemahct werden??:
+\\
+die lineinverfolgungen in dei beiden richtungen müssen in getrennten for schleifen laufen und mit untershciedlichem offset und die estiamted tries per box wurden dynamishc an die estimated RR angepasst wie auch die box_länge schon daran angepasst ist über actual_s und box_length_dyn....
+%
+\item weshalb box_length_dyn = total_pairs/ (M*actual_s)? also wehslab das M darin??
+\\
+was ist mit ENTR (entropy) (gemini meinte irwas ist arsch bei LFboth, dass ENTR arsch wird)??
+%
+\item Testlauf nach genannten optimierungen:
+\\
+=== PERFORMANCE W/O seed - norberts sampling ===
+runtime:    14.86 ms
+allocations: 117
+storage:    162.23 KiB
+countAll: 508789.46 ± 14643.83
+RR: 0.08345950156752302 ± 0.002470348240857121
+DET: 0.998439484647239 ± 0.00019396944051074558
+L: 23.791081219441814 ± 0.5330924303842874
+ENTR: 3.837006987172724 ± 0.0199397466991992
 
+=== PERFORMANCE W/O seed - importance stratified memory sampling ===
+runtime:    17.28 ms
+allocations: 102
+storage:    177.67 KiB
+countAll (korrigiert): 595450.75 ± 16822.41
+RR: 0.07562804998852563 ± 0.0022028867416207065
+DET: 0.9985841426170942 ± 0.0001678018088461515
+L: 25.002871252274517 ± 0.5322139239191341
+ENTR: 3.8562338874819684 ± 0.01902930483914499
+
+=== PERFORMANCE W/O seed - importance stratified memory sampling EP ===
+runtime:    11.44 ms
+allocations: 70
+storage:    176.21 KiB
+countAll (korrigiert): 595156.52 ± 15850.59
+RR: 0.07569874046837666 ± 0.0022633845983954506
+DET: 0.998580136025936 ± 0.00017435171466362372
+L: 25.010691926005563 ± 0.5403094949089446
+ENTR: 3.8557301812276226 ± 0.019576919481718833
+
+=== PERFORMANCE W/O seed - importance stratified memory sampling LFBOTH ===
+runtime:    2.16 ms
+allocations: 44
+storage:    96.88 KiB
+countAll (korrigiert): 22930.32 ± 456.66
+RR: 0.08725085533483934 ± 0.0017372959546562258
+DET: 0.9985759473684214 ± 0.0008434414794538696
+L: 24.47986737113914 ± 0.613730870631658
+ENTR: 3.847109940182904 ± 0.023023583594190385
+
+=== PERFORMANCE WITH seed - norberts sampling ===
+runtime:    17.48 ms
+allocations: 121
+storage:    162.37 KiB
+countAll:    519978
+RR: 0.08339741672718987
+DET: 0.9984418356456777
+L: 24.274519979242346
+ENTR: 3.8683954386281174
+
+=== PERFORMANCE WITH seed - importance stratified memory sampling ===
+runtime:    12.48 ms
+allocations: 130
+storage:    178.93 KiB
+countAll (korrigiert):    595449
+RR: 0.07663604019236032
+DET: 0.9987551782543926
+L: 25.240845796802475
+ENTR: 3.87017269561499
+
+=== PERFORMANCE WITH seed - importance stratified memory sampling EP ===
+runtime:    12.01 ms
+allocations: 130
+storage:    178.93 KiB
+countAll (korrigiert):    622976
+RR: 0.07297521851023114
+DET: 0.9986025195750016
+L: 25.150621118012424
+ENTR: 3.8658099402424124
+
+=== PERFORMANCE WITH seed - importance stratified memory sampling LFBOTH ===
+runtime:    1.91 ms
+allocations: 128
+storage:    100.75 KiB
+countAll (korrigiert):    22426
+RR: 0.08918219923303311
+DET: 0.9994999999999998
+L: 23.838945931398303
+ENTR: 3.8320473607612078
+%
+\item weshalb box_length_dyn = total_pairs/ (M*actual_s)? also wehslab das M darin??\\
+Gemini:\\
+Ergebnis und algorithmische Einschätzung: Das Binden der Box-Größe an $M$ erzwingt ein konstantes Speicher- und Laufzeitbudget; eine reine Koppelung an $RR$ führt bei extremen Matrixgrößen zu exponentiellem Overhead. Algorithmisch ist dein LFBOTH-Ansatz mit 1.91 ms (Faktor ~160 Speedup) das absolute Hardware-Limit für CPU-basiertes Sampling in Julia. Es gibt keinen etablierten Ansatz aus der Literatur, der diese Methode auf einer CPU signifikant schlägt, ohne die Topologie (und damit DET und ENTR) zu zerstören.1. Warum die Box-Anzahl an $M$ binden?Die Koppelung von $M$ und $s$ fungiert als dynamischer Skalierungsfaktor für die Rasterauflösung. Der Initialisierungsaufwand und die Speichernutzung sind bereits auf das theoretische Minimum reduziert.Die Konsequenz einer reinen $RR$-Bindung:Du entkoppelst das Suchnetz von deinem Arbeitsauftrag ($M$).Bei einer riesigen Matrix ($N = 20000$) würde ein reiner $RR$-Faktor zehntausende Boxen generieren. Die Speicherallokation explodiert und die Suchzeit nach "aktiven" Boxen dauert länger als das eigentliche Line-Tracing.Bei einem gigantischen $M$ und kleinem $RR$ hättest du zu wenige Boxen. Du übersampelst winzige Regionen massiv, das Stratified-Prinzip kollabiert und die Repräsentativität geht verloren.Das Produkt $M \times s$ garantiert hingegen eine $\mathcal{O}(M)$ Komplexität für den strukturellen Aufbau. Das Suchraster skaliert perfekt mit der Menge der gesuchten Informationen, nicht mit dem leeren Raum der Matrix.
+\\
+was ist mit ENTR (entropy) (gemini meinte irwas ist arsch bei LFboth, dass ENTR arsch wird)??
+%
+## doch noch ein anwärter?:
+%
+\item gibt noch einige ansätze die mir aber erst ein Mal zu crazy sind, also schriebe ich erstmal noch weitere systeme und optimire noch weiter an LFboth und teste:\\
+## weitere systeme: 
+%
+\item Gemini:
+\\
+Das ist ein hervorragender und wissenschaftlich absolut sauberer Ansatz. In der Fachliteratur zur Recurrence Quantification Analysis (insbesondere bei Norbert Marwan oder Webber & Zbilut) werden Algorithmen exakt anhand von vier fundamentalen Topologien validiert, da diese das gesamte Spektrum dynamischen Verhaltens abdecken.Hier ist die wissenschaftlich optimale Auswahl an Testsystemen, die deinen Algorithmus an alle Grenzen bringen wird:1. Periodisches System: Der Harmonische Oszillator (Sinus)Ein reines Sinus-Signal erzeugt ein RP, das ausschließlich aus unendlich langen, ununterbrochenen parallelen Diagonalen besteht.Warum es den Algorithmus testet: Dies ist der Stresstest für die Metrik $L$ (durchschnittliche Linienlänge) und $DET$. Da theoretisch alle Punkte auf Diagonalen liegen, muss $DET \approx 1.0$ sein. Dein Line-Tracing darf hier nicht abbrechen, bevor der Rand der Matrix erreicht ist.Modell: $x(t) = \sin(\omega t)$2. Weiteres chaotisches System: Das Lorenz-SystemDas Lorenz-System ist der Standard in der Chaosforschung. Während das Rössler-System oft sehr feine, fast eindimensionale Bänder im RP erzeugt (dünnes RP), erzeugt das Lorenz-System durch seine zwei "Schmetterlingsflügel" sehr dichte, blockartige Strukturen mit vielen kurzen, abgehackten Diagonalen.Warum es den Algorithmus testet: Es zwingt dein Sampling dazu, zwischen dicht gedrängten, aber separaten Linien zu unterscheiden. Wenn dein Code hier Linien fälschlicherweise verschmilzt, bricht die Entropie ($ENTR$) zusammen.Gleichungen:$$\dot{x} = \sigma(y-x)$$$$\dot{y} = x(\rho-z)-y$$$$\dot{z} = xy-\beta z$$(Standardparameter: $\sigma = 10, \rho = 28, \beta = 8/3$)3. Homogenes RP: Gaußsches weißes Rauschen (White Noise)Weißes Rauschen besitzt keinerlei zeitliche Korrelation. Das RP sieht aus wie Fernsehkrisseln: Es gibt fast nur isolierte, einzelne Punkte und statistisch gesehen extrem wenige, extrem kurze Linien.Warum es den Algorithmus testet: Dies ist der Härtetest für das Stratified Sampling und die Hotspot-Exploration. Weil die Dichte ($RR$) hier sehr homogen, aber Linien extrem selten sind, muss der Algorithmus beweisen, dass er nicht ewig sucht oder in Endlosschleifen festhängt, um das geforderte $M$ an Linien zu finden.4. Drift im RP: Random Walk (Brownsche Bewegung)Bei einer Brownschen Bewegung wandert der Mittelwert der Daten über die Zeit unkontrolliert ab (Nicht-Stationarität). Das RP ist nur in der Nähe der Hauptdiagonale schwarz und "verblasst" zu den Ecken der Matrix hin komplett.Warum es den Algorithmus testet: Ein perfekter Test für die Repräsentativität deines Samplings. Wenn dein Algorithmus blind überall sucht, verschwendet er in den weißen Ecken massiv Zeit. Hier zeigt sich, ob die Box-Verteilung und das LFBOTH-Verfahren mit ungleichmäßiger räumlicher Dichte umgehen können.Modell: $x_{t} = x_{t-1} + \epsilon_t$ (wobei $\epsilon_t$ weißes Rauschen ist)Einschätzung zur Klausurrelevanz & ZeiteinteilungDamit du dich bei der Erstellung dieser Test-Suite nicht verzettelst, ist es wichtig, den Aufwand zu priorisieren und klar zu kennzeichnen, was von Relevanz für die kommende Klausur sein kann und wo du keine unnötige Zeit verschwenden solltest:Hochgradig klausurrelevant: Gaußsches Rauschen und der Random Walk (Brownsche Bewegung). Diese Konzepte (stochastische Prozesse, Fluktuations-Dissipations-Theorem, Diffusion) sind klassische Kernthemen in der statistischen Physik und Thermodynamik. Ein tiefes Verständnis der Eigenschaften dieser Systeme (z.B. Varianz, die linear mit der Zeit wächst) hilft dir nicht nur für dein RP-Benchmarking, sondern zahlt sich direkt für die Prüfung aus.Eher nicht klausurrelevant (Zeitfresser): Die manuelle Implementierung der numerischen Integration (z.B. Runge-Kutta-Verfahren) zur Erzeugung des Lorenz-Systems. Die numerische Mathematik dahinter ist zwar für die Datengenerierung nötig, aber für deinen eigentlichen Lernstoff meist irrelevant. Verschwende hier keine Zeit darauf, Solver selbst zu programmieren.Soll ich dir die kompakten Julia-Snippets generieren, mit denen du diese vier Test-Datensätze (z.B. über fertige Pakete wie DynamicalSystems.jl) in wenigen Zeilen Code erzeugen kannst, damit du sofort und ohne Zeitverlust mit dem Testen beginnen kannst?:
+\\
+using Random
+
+Anzahl der Datenpunkte für alle Tests
+N_points = 10000
+
+==========================================
+1. Periodisches System: Harmonischer Oszillator
+==========================================
+Ein einfacher Sinus. Erzeugt perfekte, ununterbrochene diagonale Linien.
+t = range(0, step=0.1, length=N_points)
+x_periodic = reshape(sin.(t), :, 1)
+
+
+==========================================
+2. Chaotisches System: Lorenz-Attraktor
+==========================================
+Kompakte Implementierung (Euler-Verfahren), um aufwendige Pakete zu vermeiden.
+Erzeugt eine (N, 3)-Matrix mit dichten Blöcken und vielen kurzen Diagonalen.
+function generate_lorenz(N; dt=0.01, σ=10.0, ρ=28.0, β=8/3)
+    x = zeros(Float64, N, 3)
+    x[1, :] .= [1.0, 1.0, 1.0] # Initiale Startwerte
+    
+    @inbounds for i in 1:(N-1)
+        dx = σ * (x[i,2] - x[i,1])
+        dy = x[i,1] * (ρ - x[i,3]) - x[i,2]
+        dz = x[i,1] * x[i,2] - β * x[i,3]
+        
+        x[i+1, 1] = x[i,1] + dx * dt
+        x[i+1, 2] = x[i,2] + dy * dt
+        x[i+1, 3] = x[i,3] + dz * dt
+    end
+    return x
+end
+
+x_lorenz = generate_lorenz(N_points)
+
+
+==========================================
+3. Homogenes RP: Gaußsches weißes Rauschen
+==========================================
+randn() erzeugt standardnormalverteilte Zufallszahlen. 
+Testet die Hotspot-Exploration, da es hier kaum Linien gibt.
+x_noise = reshape(randn(N_points), :, 1)
+
+
+==========================================
+4. Drift im RP: Random Walk (Brownsche Bewegung)
+==========================================
+cumsum() summiert das Rauschen auf (Integration über die Zeit).
+Testet die Repräsentativität des Samplings durch starke Nicht-Stationarität.
+x_random_walk = reshape(cumsum(randn(N_points)), :, 1)
+%
+\item füge ich nun ein und schaue mal ob das so klappt, einfahc von gemini (siehe oben) übernommen
+\\
+ist das das was wir bei roessler auch haben, also daten mit beispiel parametern erstellen und dann in die form eines arrays bringen mit zeit in den zeilen und den phasenraum-dimensionen auf den spalten!?
+\\
+%
+### 02 h : 05 min (seit dem lezten Zeitstempel) 
 }

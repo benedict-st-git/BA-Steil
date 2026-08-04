@@ -515,20 +515,24 @@ function get_hist_diagonal_importance_stratified_memory_sampled_LFboth(x::Abstra
             # Wir brauchen ein sehr feines Raster, um die schmalen Bänder nicht zu verfehlen.
             # 5-mal so viele Boxen wie wir M suchen (winzige Boxen).
             actual_s = 5.0   
+            estimated_tries_per_box = 50
             
         elseif estimated_RR > 0.2
             # SEHR DICHTES RP (z.B. Rauschen): 
             # Die Trefferquote ist eh riesig, wir können die Boxen doppelt so groß machen,
             # um Overhead zu sparen.
             actual_s = 0.5   
+            estimated_tries_per_box = 12
             
         else
-            # NORMALFALL:
+            # NORMALFALL (estimated_RR zwischen 0.05 und 0.2 (mittel ca. 0.1)):
             actual_s = 1.0   
+            estimated_tries_per_box = 24
         end
 
     else
         actual_s = 1.0
+        estimated_tries_per_box = 24
     end
     
     s_tilde = M * actual_s
@@ -540,7 +544,7 @@ function get_hist_diagonal_importance_stratified_memory_sampled_LFboth(x::Abstra
 
     active_boxs = Int[]
     for current_box in 1:num_boxes
-        for _ in 1:10 # 10 versuche pro box? oder dynamisch?
+        for _ in 1:estimated_tries_per_box # konstante anzahl an versuchen (z.B.: 10) pro box? oder dynamisch (wharshcienlichkeit weiß zu treffen nach der estimated_RR bei 7.7 (siehe oben))?
             lower_bound = (current_box-1) * box_length_dyn + 1
             upper_bound = current_box == num_boxes ? total_pairs : current_box * box_length_dyn
 
@@ -578,33 +582,37 @@ function get_hist_diagonal_importance_stratified_memory_sampled_LFboth(x::Abstra
         countAll += 1                 # Count number of searches
         idx = rand(lower_bound:upper_bound)     # Random start pair (i,j) in linear notation
             
+        # weshalb das folgende? mathe verstehen.
         d = ceil(Int, ((2N - 1) - sqrt(Float64((2N - 1)^2 - 8 * idx))) / 2) # which diagonal we are on
         previous_elements = (d - 1) * N - (d - 1) * d ÷ 2
         j_start = idx - previous_elements     # spalte
-        i_start = j_start + d
+        i_start = j_start + d                 # zeile größer spalte => oberes dreieck (diagonale von links unten nach rechts oben und achsen-nullpunkt links unten)
 
         D2 = zero(T)
         @inbounds for k in 1:dim
             D2 += (x[i_start,k] - x[j_start,k])^2
         end
         if D2 > ε2
-            continue  # kein Linienstart, nächster Versuch
+            continue  # kein schwarzer Punkt, nächster Versuch
         end
         
         # Black Point found, now count line length
         cnt = 0
-        @inbounds for offset in 0:(N - i_start)
+        @inbounds for offset in 0:(N - i_start) # weshalb klappt das?
             D2_line_following = 0.0 # verbesserung: zero(T) ?!
             for k in 1:dim
                 D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
             end
             if D2_line_following <= ε2          # Count points belonging to diagonal
                 cnt += 1              # Extend diagonal
+            else
+                break                 # Line ends
             end
-
+        end
+        @inbounds for offset in 1:(j_start-1) # weshalb klappt das?
             D2_line_prev = 0.0 # verbesserung: zero(T) ?!
             for k in 1:dim
-                D2_line_prev += (x[i_start - offset + 1,k] - x[j_start - offset + 1,k])^2
+                D2_line_prev += (x[i_start - offset ,k] - x[j_start - offset ,k])^2
             end
             if D2_line_prev <= ε2          # Count points belonging to diagonal
                 cnt += 1              # Extend diagonal
