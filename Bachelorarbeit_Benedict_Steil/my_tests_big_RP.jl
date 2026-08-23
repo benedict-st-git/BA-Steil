@@ -388,6 +388,7 @@ std_ENTR_importance_strat_mem = std(ENTR_history_importance_strat_mem)
 std_ENTR_importance_strat_mem_ep = std(ENTR_history_importance_strat_mem_ep)
 std_ENTR_importance_strat_mem_lfboth = std(ENTR_history_importance_strat_mem_lfboth)
 
+
 # ====================================================================
 # Ausgaben
 # ====================================================================
