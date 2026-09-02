@@ -1203,8 +1203,9 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
     active_boxs = Int[]
     check_cnt = 0 # black points checked for being part of a line of at least length of 50 (dynamisch besser?!)
     check_length = 50 # dynamisch besser !?
-    check_goal = 5 # dynamisch besser !?
+    long_lines_goal = 3 # dynamisch besser !?
     is_periodic = false
+    long_lines = 0
 
     for current_box in 1:num_boxes
         for _ in 1:estimated_tries_per_box # konstante anzahl an versuchen (z.B.: 10) pro box? oder dynamisch (wharshcienlichkeit weiß zu treffen nach der estimated_RR bei 7.7 (siehe oben))?
@@ -1236,21 +1237,27 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
                             D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
                         end
                         if D2_line_following > ε2          # Count points belonging to diagonal
-                            check_periodicity = false # so check_cnt is not fortgeführt und bricht dann die prüfung der boxen für LFboth ab
                             break                 # Line ends
+                        else
+                            long_lines += 1
                         end
                     end
                 end
                 break
             end
         end
-        if check_cnt >= check_goal && check_periodicity
+        if long_lines >= long_lines_goal # && check_periodicity
             is_periodic = true
             break
+
+        elseif check_cnt >= 10
+            check_periodicity = false # so check_cnt is not fortgeführt und bricht dann die prüfung der boxen für LFboth ab
         end
     end
 
     if is_periodic
+        
+        println("--> NORBERTS SAMPLING (DETECTED AS PERIODIC)")
         while count < M
             countAll += 1                 # Count number of searches
             idx = rand(1:total_pairs)     # Random start pair (i,j) in linear notation
@@ -1335,7 +1342,9 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
             end
         end
         return L_local, countAll
+
     else
+
         current_box = 0
         while count < M
 

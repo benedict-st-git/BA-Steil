@@ -3595,6 +3595,41 @@ arsch. vermutung: hat bei klasse 3 harmonsicher oszillator periodisch gar nciht 
 TODO:\\
 print einbauen, wenn norberts benutzt wird und bedingung optimieren und vlt auch implementierung noch irwie?! \\
 und dann noch die optimierung von smi_LFboth für Drift, noise und chaotic
+\\
+achso und die Entropy-werte sind wieder negativ. why??????????
 %
 ### 02 h : 30 min (seit dem letzten Zeitstempel)
+%
+# 27.08.2026
+%
+\item anpassungen gestartet (dicke ränder) muss noch verstehen was das ist und weshalb und anpassungen ncoh fertig machen und optimieren und dann noch entropy stuff
+%
+### paar minuten (seit dem letzten Zeitstempel)
+%
+# 02.09.2026
+%
+## anpassung von hybrid und optimierung smi_LFboth
+%
+\item dicke ränder verstehen, die bei harmonischem osz auftreten und bei der bedingung "drei linien mit mindestens länge 50 finden und wenn eine untersuchte linie/punkt dem nicht entspricht wird suche sofort aufgegeben " dafür sorgt, dass Norberts algo nicht aktiviert wird
+\\
+\Rightarrow bedingung ändern auf drei linien a 50 bleibt, aber es wird erst die suche abgebrochen (check_periodicity = false), wenn 3 linien gefunden und damit is_periodic = true oder 10 mal versucht und keine 3 linien a mind 50 gefunden, also is_periodic = false bleibt
+\\
+klingt allg sinnvoll, aber was hat das mit den dicken Rändern zu tun?\\
+ahh, das ist der bumms mit (2, 2+periodendauer) = black, aber da perfekt kontinuierlich/sys bewegt sich so langsam so wenig magnitude weit weg von dem Punkt (2, 2) = (2, 2+pd) im phasenraum, dass (2, 2+pd \pm 1) = black und womöglich noch weiter (2, 2+pd \pm 2) = black usw. und dadurch entsteht ein "fehler", also eine super dicke schwarze diagonale/super viele diagonale, welche effektiv in bedeutung nur einer diagonalen entspricht/entsprechen?! dieses phänomen tritt aber nicht notwendigerweise entlang der gesamten effektiven/echten diagonalen auf. z.b. bei dem pendel wird die diagonale "dick" an den wendepunkten, wo das pendel super langsam ist und im phasenraum (ort, impuls) sich auch kaum bewegt, also viele schwarze punkt in der waagrechten/senkrechten. und dann wenn quasi alles kinetische energie ist, am ?apex? der pendel bewegung, wird es wahrscheinlich gar keine senkrechten/waagerechten linien geben.\\
+das ist äquivalent zu kurzen diagonalen linien parallel zur echten/effektiven diagonalen, welche natürlich die zählung allgemein und auch das einschätzen, nach dem längenkriterium ob is_periodic = true/false verfälschen!! \\
+darum also mehr versuche um diese linien nicht fälschlicherweise als nachweis für ein nicht periodisches system zu nutzen.
+\\
+außerdem sollte ich dies allgemein in meinem sampling und bie norbert noch irwie berücksichtigen?? 
+\\
+ist es genug nur anzupassen, dass ich 10 versuche mache (generell eher dynamisch an die system größe oder zeitreihen größe anpassen, wie die geforderte linienlänge auch??), statt sofort abzubrechen, wenn eine linie nicht lang genug ist (v.A. in meinem diagonal durchlaufen, wo ich je nach boxlänge ja auch die selbe lange oder nicht so lange, aber über mehrere boxen gehende linie mehrfach entlang gehe und schaue ob die 50 lang ist)?? da gibt es irwie noch ein besseres kriterium bestimmt!?!
+%
+\item shannon entropie und weshalb sind die werte negativ?
+\\
+DUMM!! nur differenz ist engativ, werte sind pos (da hatte ich irwann mal was angepasst auch, was nochmal??)
+\\
+gemini meinte irwas von wegen die linien die an den rändern abgeschnitten werden, aber eigentlich noch wieter gehen führen zu problemen und man könne die einfach ignorieren und dadurch smi_LFboth für Drift und Noise optimieren. Erstmal das verstehen, bevor ich was mache.
+\\
+und davor ncoh kurz testen ob durch die kriterium anpassung nun überhaupt der switch zu norberts funktioniert, für periodisch (bisher nur harm osz)
+%
+### 01 h : 20 min (seit dem letzten Zeitstempel)
 }
