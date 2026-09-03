@@ -928,7 +928,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
 
                     # Black Point found, estimate periodicity
                     @inbounds for offset in 0:min(LFboth_check_length, (N - i_start)) 
-                        D2_line_following = 0.0 # verbesserung: zero(T) ?!
+                        D2_line_following = zero(T) # verbesserung: zero(T) ?!
                         for k in 1:dim
                             D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
                         end
@@ -938,7 +938,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
                         end
                     end
                     @inbounds for offset in 1:min(LFboth_check_length, (j_start-1)) 
-                        D2_line_prev = 0.0 # verbesserung: zero(T) ?!
+                        D2_line_prev = zero(T) # verbesserung: zero(T) ?!
                         for k in 1:dim
                             D2_line_prev += (x[i_start - offset ,k] - x[j_start - offset ,k])^2
                         end
@@ -979,7 +979,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
             if i_start == 1 || j_start == 1
                 # We are at the lower border – no previous points
             else
-                D2_prev = 0.0
+                D2_prev = zero(T)
                 @inbounds for k in 1:dim
                     D2_prev += (x[i_start-1,k] - x[j_start-1,k])^2
                 end
@@ -991,7 +991,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
             # Line found, now count line length
             cnt = 0
             @inbounds for offset in 0:(N - i_start)
-                D2_line = 0.0
+                D2_line = zero(T)
                 for k in 1:dim
                     D2_line += (x[i_start + offset,k] - x[j_start + offset,k])^2
                 end
@@ -1074,7 +1074,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
             # Black Point found, now count line length
             cnt = 0
             @inbounds for offset in 0:(N - i_start) # weshalb klappt das?
-                D2_line_following = 0.0 # verbesserung: zero(T) ?!
+                D2_line_following = zero(T) # verbesserung: zero(T) ?!
                 for k in 1:dim
                     D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
                 end
@@ -1085,7 +1085,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
                 end
             end
             @inbounds for offset in 1:(j_start-1) # weshalb klappt das?
-                D2_line_prev = 0.0 # verbesserung: zero(T) ?!
+                D2_line_prev = zero(T) # verbesserung: zero(T) ?!
                 for k in 1:dim
                     D2_line_prev += (x[i_start - offset ,k] - x[j_start - offset ,k])^2
                 end
@@ -1202,6 +1202,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
 
     active_boxs = Int[]
     check_cnt = 0 # black points checked for being part of a line of at least length of 50 (dynamisch besser?!)
+    check_cnt_max = 10 # dynamisch besser !?
     check_length = 50 # dynamisch besser !?
     long_lines_goal = 3 # dynamisch besser !?
     is_periodic = false
@@ -1227,23 +1228,25 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
                 continue  
             else
                 push!(active_boxs, current_box)
-                if check_periodicity
+                if check_periodicity && check_cnt < check_cnt_max
                     check_cnt += 1
-
+                    is_long_line = true
                     # Black Point found, estimate periodicity
-                    @inbounds for offset in 0:min(check_length, (N - i_start)) 
+                    @inbounds for offset in 1:min(check_length, (N - i_start)) # starte bie eins um nicht gefundenen schwarzen punkt nochmal zu prüfen und min(check_length, (N - i_start)) ist toll because ??
                         D2_line_following = 0.0 # verbesserung: zero(T) ?!
                         for k in 1:dim
                             D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
                         end
                         if D2_line_following > ε2          # Count points belonging to diagonal
+                            is_long_line = false
                             break                 # Line ends
-                        else
-                            long_lines += 1
                         end
                     end
+                    if is_long_line
+                        long_lines += 1
+                    end
                 end
-                break
+                break # raus aus der current box falls schwarzen punkt gefunden
             end
         end
         if long_lines >= long_lines_goal # && check_periodicity
@@ -1257,7 +1260,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
 
     if is_periodic
         
-        println("--> NORBERTS SAMPLING (DETECTED AS PERIODIC)")
+        # println("--> NORBERTS SAMPLING (DETECTED AS PERIODIC)")
         while count < M
             countAll += 1                 # Count number of searches
             idx = rand(1:total_pairs)     # Random start pair (i,j) in linear notation
