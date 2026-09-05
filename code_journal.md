@@ -5606,4 +5606,22 @@ storage:     84.27 KiB
 %
 \item wtf ist mit dem hybrid ding. noch kurz checken was hier schief geht und dann das mit dem merken.
 ### 01 h : 36 min (seit dem letzten Zeitstempel)
+%
+# 05.09.2026
+%
+## wtf ist mit dem hybrid ding. noch kurz checken was hier schief geht und dann das mit dem merken.
+%
+\item anscheinend hat hybrid bei Lorenz NOrbert bei harm osc smi_LFboth und sonst smilfb genutzt
+%
+\item nochmal test bei hybrid_LFboth alles genauso wie bei hybrid fw:
+\\
+
+%
+\item jetzt verstehen wie das mit dme diagonale merken geht udn dann implementieren und hoffentlich mega schenll und für alle systeme und dann noch shcauen, dass ich die qualität der werte in smilfb optimiere auch mit kleinkram (0.0 zu zero(T) kinda shit), dann das selbe für norbert UND dann nochmal zeit optimieren auch mit kleinkram und gucken ob die werte schlechter werden
+%
+## verstehen wie das diagonalen merken ohne speichern und zeit fressen geht (zero allocation - trick)
+%
+\item kann man den zero allocations-trick, den ich noch nciht kenne auch für active_boxs verwenden, da das ja noch mit richtig speichern, also mit array [] und dann in jeder box mit einem schwarzen punkt push! macht, also langsam und scheiße!??
+%
+### 01 h : 00 min (seit dem letzten Zeitstempel)
 }

@@ -895,13 +895,15 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
     num_boxes = min(total_pairs, max(1, round(Int, s_tilde)))
     box_length_dyn = total_pairs ÷ num_boxes
     current_box = 0
-
+    
     active_boxs = Int[]
     check_cnt = 0 # black points checked for being part of a line of at least length of 50 (dynamisch besser?!)
+    check_cnt_max = 10 # dynamisch besser !?
     check_length = 50 # dynamisch besser !?
     LFboth_check_length = check_length ÷ 2
-    check_goal = 5 # dynamisch besser !?
+    long_lines_goal = 3 # dynamisch besser !?
     is_periodic = false
+    long_lines = 0
 
     for current_box in 1:num_boxes
         for _ in 1:estimated_tries_per_box # konstante anzahl an versuchen (z.B.: 10) pro box? oder dynamisch (wharshcienlichkeit weiß zu treffen nach der estimated_RR bei 7.7 (siehe oben))?
@@ -923,9 +925,11 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
                 continue  
             else
                 push!(active_boxs, current_box)
-                if check_periodicity
+                if check_periodicity && check_cnt < check_cnt_max
                     check_cnt += 1
-
+                    is_long_line_following = true
+                    is_long_line_prev = true
+        
                     # Black Point found, estimate periodicity
                     @inbounds for offset in 0:min(LFboth_check_length, (N - i_start)) 
                         D2_line_following = zero(T) # verbesserung: zero(T) ?!
@@ -933,7 +937,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
                             D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
                         end
                         if D2_line_following > ε2          # Count points belonging to diagonal
-                            check_periodicity = false # so check_cnt is not fortgeführt und bricht dann die prüfung der boxen für LFboth ab
+                            is_long_line_following = false
                             break                 # Line ends
                         end
                     end
@@ -943,19 +947,26 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
                             D2_line_prev += (x[i_start - offset ,k] - x[j_start - offset ,k])^2
                         end
                         if D2_line_prev > ε2          # Count points belonging to diagonal
-                            check_periodicity = false # so check_cnt is not fortgeführt und bricht dann die prüfung der boxen für LFboth ab
+                            is_long_line_prev = false
                             break                 # Line ends
                         end
                     end
+                    if is_long_line_following && is_long_line_prev
+                        long_lines += 1
+                    end
                 end
-                break
+                break # raus aus der current box falls schwarzen punkt gefunden
             end
         end
-        if check_cnt >= check_goal && check_periodicity
+        if long_lines >= long_lines_goal # && check_periodicity
             is_periodic = true
             break
+
+        elseif check_cnt >= 10
+            check_periodicity = false # so check_cnt is not fortgeführt und bricht dann die prüfung der boxen für LFboth ab
         end
     end
+
 
     if is_periodic
         while count < M
