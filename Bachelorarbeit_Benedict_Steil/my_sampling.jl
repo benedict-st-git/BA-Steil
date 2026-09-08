@@ -904,6 +904,9 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
     long_lines_goal = 3 # dynamisch besser !?
     is_periodic = false
     long_lines = 0
+    d1 = -1 # d1, d2, d3 are the diagonals of the found long lines (to avoid counting the same line multiple times)
+    d2 = -1
+    d3 = -1
 
     for current_box in 1:num_boxes
         for _ in 1:estimated_tries_per_box # konstante anzahl an versuchen (z.B.: 10) pro box? oder dynamisch (wharshcienlichkeit weiß zu treffen nach der estimated_RR bei 7.7 (siehe oben))?
@@ -952,7 +955,16 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
                         end
                     end
                     if is_long_line_following && is_long_line_prev
-                        long_lines += 1
+                        if d != d1 && d != d2 && d != d3
+                            long_lines += 1
+                            if long_lines == 1
+                                d1 = d
+                            elseif long_lines == 2
+                                d2 = d
+                            elseif long_lines == 3
+                                d3 = d    
+                            end
+                        end
                     end
                 end
                 break # raus aus der current box falls schwarzen punkt gefunden
@@ -1218,6 +1230,9 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
     long_lines_goal = 3 # dynamisch besser !?
     is_periodic = false
     long_lines = 0
+    d1 = -1 # -1 heißt einfach noch keine reale diagonale zugewiesen; diagonalen-ID ist immer d > 0 , außer LOI d=0
+    d2 = -1
+    d3 = -1
 
     for current_box in 1:num_boxes
         for _ in 1:estimated_tries_per_box # konstante anzahl an versuchen (z.B.: 10) pro box? oder dynamisch (wharshcienlichkeit weiß zu treffen nach der estimated_RR bei 7.7 (siehe oben))?
@@ -1244,7 +1259,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
                     is_long_line = true
                     # Black Point found, estimate periodicity
                     @inbounds for offset in 1:min(check_length, (N - i_start)) # starte bie eins um nicht gefundenen schwarzen punkt nochmal zu prüfen und min(check_length, (N - i_start)) ist toll because ??
-                        D2_line_following = 0.0 # verbesserung: zero(T) ?!
+                        D2_line_following = zero(T) # verbesserung: zero(T) ?!
                         for k in 1:dim
                             D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
                         end
@@ -1254,7 +1269,16 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
                         end
                     end
                     if is_long_line
-                        long_lines += 1
+                        if d != d1 && d != d2 && d != d3
+                            long_lines += 1
+                            if long_lines == 1
+                                d1 = d
+                            elseif long_lines == 2
+                                d2 = d
+                            elseif long_lines == 3
+                                d3 = d    
+                            end
+                        end
                     end
                 end
                 break # raus aus der current box falls schwarzen punkt gefunden
