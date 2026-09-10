@@ -7619,4 +7619,1051 @@ storage:     84.27 KiB
 ## optimieren von LFboth für Drift (dieser empty streak kram?!?) Edit: NE! Bei Lorenz wurde Norbert eingeschaltet. da muss ich noch was tun! aber was?? und bei harm osc scheint LFboth (weshalb aber so unterschiedliche werte zw hybrid LFb und hybrid fwrd??). AUßERDEM: herausfinden welches bei Drift und Noise benutzt wird!? was war bei Drift los?? weil drift so viel ausgegeben hat, ist der anfang, also Norbert-Lorenz und Roessler komplett abgeschnitten (aber wie geschrieben, bei roessler war geil, aber bei lorenz waren die werte von Norbert nicht von LFboth, also anscheinend Norbert eingeschaltet).
 %
 ### 01 h : 03 min (seit dem letzten Zeitstempel)
+%
+# 08.09.2026
+%
+\item doch alles da glaube, nur bisschen hoch kopiert
+%
+# 10.09.2026
+%
+\item mit "offset in min(50 oder 25, (rest der diagonale vorwärts oder rückwärts (may be 5 (lower 25 or 50))))" folgt, dass linien deutlich kürzer als 50 als long_lines akzeptiert/gezählt (und "gespeichert" (zero_allocation)) werden. deshalb die fehler, nicht weil das kriterium schlecht ist?! bei lorenz verstehe ich also, aber bei harm osc?? (gemini: Beim Harmonischen Oszillator (Periodisch): Er hat unendlich lange Linien, verbraucht aber seine check_cnt_max = 10 Versuche oft an Punkten nahe dem Rand, die dann (mit dem Fix, den wir gleich einbauen) nicht mehr zählen dürfen. (verstehe ich nicht, wo ist der grund, dass keine langen linien gefunden werden?))
+ja keine ahnung gemini rafft es auch nicht, weshalb beim harm osc auf smiLFboth geschaltet wurde.\\
+-> fix it: \\
+sobald N-i_start oder j_start-N oder der bumms, also die auf der diagonale in eine richtung verbleibenden schritte/elemente/pixel, kleiner check_length = clamp(N \div 10, 20, 100) sind, wird der check nicht durchgeführt.
+und
+20 statt 10 versuche maximal (weil wir nun nicht alle gefundenen prüfen, aber einige ungeprüft verwerfen)
+und
+optimal gesucht sind linien von mindestens check_length = clamp(N \div 10, 20, 100) (nie unter 20 und nie über 100 (statistische empfehlung von Gmeini))
+\\
+Fragen: kackt das die Zeit ab?
+Außerdem
+wer und weshalb garantiert, dass die gesamte diagonale auf welcher wir sind mindestens 100, respektive viel mehr als 100 elemente hat und dass von dieser größenordnung noch ein paar mehr zur ecke hin, weg von der LOI (werden ja definitiv immer kürzer) existieren?
+%
+\item implementieren
+%
+\item zero(T) überall nun (hybride (auch in norberts in hybriden) und smi_SP,EP und LFb), bis auf in norbert allein
+%
+\item für später :\\
+if isempty(active_boxs)
+    # Fallback auf Norbert oder Abbruch der Analyse
+    is_periodic = true 
+end
+\\
+UND
+\\
+Cache-Misses und die Geometrie der Matrix xIn deinen Distanzberechnungen iterierst du über die Dimensionen:@inbounds for k in 1:dim; D2 += (x[i_start,k] - x[j_start,k])^2; end  Hintergrund: Julia ist Column-Major. Das bedeutet, Daten in einer Spalte (aufeinanderfolgende Zeilen) liegen direkt nebeneinander im Speicher. Du greifst hier auf x[i, k] zu, wobei i die Zeile und k die Spalte (Dimension) ist. Wenn sich k ändert, springst du quer durch den Arbeitsspeicher.  Die Lösung: Wenn möglich, transponiere deine Datenstruktur vor der Übergabe an die Funktion, sodass die Matrix die Form (dim, N) hat. Die Schleife wird dann zu (x[k, i_start] - x[k, j_start])^2. Wenn du physikalische Trajektorien mit kleiner Dimension (z. B. 3 bis 10) analysierst, kann dieser zusammenhängende Speicherzugriff die Distanzberechnung um das 2- bis 3-fache beschleunigen.
+%
+\item ich implementiere:
+\\
+SIMD-Potenzial in der forward_conditionIn der Methode smi_LFboth_or_norbert_rand_with_LineLength_forward_condition hast du den fantastischen Rand-Fix implementiert: max_possible_offset < check_length.
+Da nun absolut sichergestellt ist, dass die nachfolgende Linie nicht über den Matrixrand ($N$) hinausläuft, kannst du den Compiler zwingen, die Berechnung zu vektorisieren (SIMD - Single Instruction, Multiple Data).  Die Optimierung: Schreibe @inbounds @simd for offset in 1:check_length. Da du keine min()-Prüfung mehr im Schleifenkopf hast, kann der Compiler hier massiv optimieren.
+\\
+mal und schaue was passiert. aber das (der SIMD kram) ist noch zu verstehen später. 
+UND
+kann ich das bei den anderen schleifen auch noch nutzen??
+\\
+Edit: letztere Frage bleibt. aber mit:\\
+ERROR: LoadError: Base.SimdLoop.SimdError("break is not allowed inside a @simd loop body")\\
+UND\\
+for offset in 1:min(LFboth_check_length, (j_start-1)) 
+                            D2_line_prev = zero(T) # verbesserung: zero(T) ?!
+                            @inbounds for k in 1:dim
+                                D2_line_prev += (x[i_start - offset ,k] - x[j_start - offset ,k])^2
+                            end
+                            if D2_line_prev > ε2          # Count points belonging to diagonal
+                                is_long_line_prev = false
+                                break                 # Line ends
+                            end
+                        end
+\\
+klappt das nicht mit @simd (schleife hat clearly ein "break" drin)
+%
+\item @inbounds an alle for k in 1:dim schleifen zur bestimmung von D
+%
+\item test:\\
+======================================================================
+ SYSTEM: KLASSE 1: CHAOS (ROESSLER SYSTEM)
+======================================================================
+
+=== PERFORMANCE - woRP (BASELINE) ===
+runtime:     310.63 ms
+allocations: 3
+storage:     78.19 KiB
+RR:   0.08277577808439872
+DET:  0.9984392508670275
+L:    23.776464002619335
+ENTR: 3.864856330212997
+
+=== PERFORMANCE - Norberts Sampling ===
+
+  [Benchmark W/O Seed]
+runtime:     14.92 ms
+allocations: 121
+storage:     162.36 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     15.41 ms
+allocations: 121
+storage:     162.36 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 508731.91 ± 14343.88
+  RR:       0.08350846796400321 ± 0.00242178560567339
+    -> ΔwoRP: 0.000732689879604495 ± 0.00242178560567339
+  DET:      0.9984369785082214 ± 0.0001878967517198739
+    -> ΔwoRP: -2.2723588060102884e-6 ± 0.0001878967517198739
+  L:        23.80543980244929 ± 0.5136861854442661
+    -> ΔwoRP: 0.02897579982995424 ± 0.5136861854442661
+  ENTR:     3.8383877520645964 ± 0.018691447035170165
+    -> ΔwoRP: -0.026468578148400645 ± 0.018691447035170165
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 519978
+  RR:       0.08339741672718987 (ΔwoRP: 0.0006216386427911474)
+  DET:      0.9984418356456777 (ΔwoRP: 2.5847786502275483e-6)
+  L:        24.274519979242346 (ΔwoRP: 0.4980559766230108)
+  ENTR:     3.8683954386281174 (ΔwoRP: 0.0035391084151203955)
+
+=== PERFORMANCE - Importance Stratified Memory ===
+
+  [Benchmark W/O Seed]
+runtime:     12.55 ms
+allocations: 114
+storage:     178.32 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     12.12 ms
+allocations: 130
+storage:     178.93 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 595609.29 ± 15905.98
+  RR:       0.07563151305431826 ± 0.002215637581439068
+    -> ΔwoRP: -0.007144265030080463 ± 0.002215637581439068
+  DET:      0.998585931992204 ± 0.0001781018996790311
+    -> ΔwoRP: 0.00014668112517657317 ± 0.0001781018996790311
+  L:        25.002572886575432 ± 0.5277824634632088
+    -> ΔwoRP: 1.2261088839560976 ± 0.5277824634632088
+  ENTR:     3.855914528340821 ± 0.018773953441870876
+    -> ΔwoRP: -0.008941801872175859 ± 0.018773953441870876
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 595449
+  RR:       0.07663604019236032 (ΔwoRP: -0.006139737892038394)
+  DET:      0.9987551782543926 (ΔwoRP: 0.0003159273873651891)
+  L:        25.240845796802475 (ΔwoRP: 1.46438179418314)
+  ENTR:     3.87017269561499 (ΔwoRP: 0.005316365401993206)
+
+=== PERFORMANCE - Importance Stratified Memory EP ===
+
+  [Benchmark W/O Seed]
+runtime:     11.14 ms
+allocations: 82
+storage:     176.75 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     12.1 ms
+allocations: 130
+storage:     178.93 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 595531.6 ± 17030.86
+  RR:       0.07570584251250784 ± 0.0022626844368796033
+    -> ΔwoRP: -0.007069935571890881 ± 0.0022626844368796033
+  DET:      0.998591015259895 ± 0.00017321183924440023
+    -> ΔwoRP: 0.00015176439286757049 ± 0.00017321183924440023
+  L:        25.02595923868615 ± 0.5389280550977005
+    -> ΔwoRP: 1.2494952360668137 ± 0.5389280550977005
+  ENTR:     3.855456905014966 ± 0.019655577960147195
+    -> ΔwoRP: -0.009399425198031164 ± 0.019655577960147195
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 622976
+  RR:       0.07297521851023114 (ΔwoRP: -0.009800559574167575)
+  DET:      0.9986025195750016 (ΔwoRP: 0.00016326870797411797)
+  L:        25.150621118012424 (ΔwoRP: 1.3741571153930892)
+  ENTR:     3.8658099402424124 (ΔwoRP: 0.0009536100294154082)
+
+=== PERFORMANCE - Importance Stratified Memory LFBOTH ===
+
+  [Benchmark W/O Seed]
+runtime:     2.08 ms
+allocations: 84
+storage:     98.71 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     4.94 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 22921.0 ± 469.48
+  RR:       0.08726700249039909 ± 0.0017432071789157976
+    -> ΔwoRP: 0.004491224406000374 ± 0.0017432071789157976
+  DET:      0.9985504614351195 ± 0.0008342435577393613
+    -> ΔwoRP: 0.0001112105680920461 ± 0.0008342435577393613
+  L:        24.482113965869402 ± 0.6214374178491775
+    -> ΔwoRP: 0.7056499632500675 ± 0.6214374178491775
+  ENTR:     3.8475426516283013 ± 0.02253732879673414
+    -> ΔwoRP: -0.01731367858469568 ± 0.02253732879673414
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 22426
+  RR:       0.08918219923303311 (ΔwoRP: 0.006406421148634392)
+  DET:      0.9994999999999998 (ΔwoRP: 0.0010607491329723828)
+  L:        23.838945931398303 (ΔwoRP: 0.06248192877896841)
+  ENTR:     3.8320473607612078 (ΔwoRP: -0.03280896945178924)
+
+=== PERFORMANCE - Hybrid (LFboth Condition) ===
+
+  [Benchmark W/O Seed]
+runtime:     2.03 ms
+allocations: 44
+storage:     84.68 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     4.67 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 23878.77 ± 21738.9
+  RR:       0.08732407459412221 ± 0.0017247157693512938
+    -> ΔwoRP: 0.004548296509723493 ± 0.0017247157693512938
+  DET:      0.9985361413934107 ± 0.0008043605482011245
+    -> ΔwoRP: 9.689052638328643e-5 ± 0.0008043605482011245
+  L:        24.477853895980473 ± 0.6318871136541837
+    -> ΔwoRP: 0.7013898933611387 ± 0.6318871136541837
+  ENTR:     3.846823974705236 ± 0.022632924685774214
+    -> ΔwoRP: -0.018032355507760833 ± 0.022632924685774214
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 22426
+  RR:       0.08918219923303311 (ΔwoRP: 0.006406421148634392)
+  DET:      0.9994999999999998 (ΔwoRP: 0.0010607491329723828)
+  L:        23.838945931398303 (ΔwoRP: 0.06248192877896841)
+  ENTR:     3.8320473607612078 (ΔwoRP: -0.03280896945178924)
+
+=== PERFORMANCE - Hybrid (Forward Condition) ===
+
+  [Benchmark W/O Seed]
+runtime:     2.02 ms
+allocations: 56
+storage:     84.69 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     3.36 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 22888.46 ± 546.05
+  RR:       0.08736067919649347 ± 0.001748963372266298
+    -> ΔwoRP: 0.0045849011120947525 ± 0.001748963372266298
+  DET:      0.9986008633603237 ± 0.0008629458231450135
+    -> ΔwoRP: 0.00016161249329627037 ± 0.0008629458231450135
+  L:        24.454149844914717 ± 0.6348072362404662
+    -> ΔwoRP: 0.6776858422953822 ± 0.6348072362404662
+  ENTR:     3.8468474273523454 ± 0.023536472880750295
+    -> ΔwoRP: -0.0180089028606516 ± 0.023536472880750295
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 22426
+  RR:       0.08918219923303311 (ΔwoRP: 0.006406421148634392)
+  DET:      0.9994999999999998 (ΔwoRP: 0.0010607491329723828)
+  L:        23.838945931398303 (ΔwoRP: 0.06248192877896841)
+  ENTR:     3.8320473607612078 (ΔwoRP: -0.03280896945178924)
+
+
+======================================================================
+ SYSTEM: KLASSE 1: CHAOS (LORENZ SYSTEM)
+======================================================================
+
+=== PERFORMANCE - woRP (BASELINE) ===
+runtime:     339.8 ms
+allocations: 3
+storage:     78.19 KiB
+RR:   0.12050202018220797
+DET:  0.9998998789325514
+L:    40.53190731895452
+ENTR: 4.524222130528146
+
+=== PERFORMANCE - Norberts Sampling ===
+
+  [Benchmark W/O Seed]
+runtime:     17.46 ms
+allocations: 117
+storage:     162.22 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     21.16 ms
+allocations: 121
+storage:     162.36 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 591047.51 ± 13205.03
+  RR:       0.12479519960049884 ± 0.004535734937221308
+    -> ΔwoRP: 0.004293179418290868 ± 0.004535734937221308
+  DET:      0.9998983038961073 ± 3.490687384128628e-5
+    -> ΔwoRP: -1.5750364440458853e-6 ± 3.490687384128628e-5
+  L:        40.55435556531019 ± 1.2932388614480652
+    -> ΔwoRP: 0.022448246355672552 ± 1.2932388614480652
+  ENTR:     4.4399837013788765 ± 0.027519135307625384
+    -> ΔwoRP: -0.08423842914926905 ± 0.027519135307625384
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 617671
+  RR:       0.11708743063717104 (ΔwoRP: -0.003414589545036928)
+  DET:      0.9998602375960867 (ΔwoRP: -3.964133646472412e-5)
+  L:        39.56460532931121 (ΔwoRP: -0.9673019896433033)
+  ENTR:     4.415985716337583 (ΔwoRP: -0.10823641419056251)
+
+=== PERFORMANCE - Importance Stratified Memory ===
+
+  [Benchmark W/O Seed]
+runtime:     24.79 ms
+allocations: 132
+storage:     203.02 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     31.04 ms
+allocations: 130
+storage:     178.95 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 770484.86 ± 19609.55
+  RR:       0.10069913154216217 ± 0.0037784859775100883
+    -> ΔwoRP: -0.0198028886400458 ± 0.0037784859775100883
+  DET:      0.9999089081026755 ± 3.238437465132136e-5
+    -> ΔwoRP: 9.029170124130736e-6 ± 3.238437465132136e-5
+  L:        41.86051771671711 ± 1.2990454277222208
+    -> ΔwoRP: 1.3286103977625956 ± 1.2990454277222208
+  ENTR:     4.471099708002964 ± 0.027362400199875455
+    -> ΔwoRP: -0.05312242252518118 ± 0.027362400199875455
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 813909
+  RR:       0.0970121861694318 (ΔwoRP: -0.02348983401277617)
+  DET:      0.9999172342035566 (ΔwoRP: 1.7355271005214945e-5)
+  L:        42.433015554440544 (ΔwoRP: 1.9011082354860278)
+  ENTR:     4.493282877959766 (ΔwoRP: -0.030939252568379594)
+
+=== PERFORMANCE - Importance Stratified Memory EP ===
+
+  [Benchmark W/O Seed]
+runtime:     26.73 ms
+allocations: 132
+storage:     203.05 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     28.18 ms
+allocations: 130
+storage:     178.93 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 769590.38 ± 19928.57
+  RR:       0.10100163105359994 ± 0.003988796625928178
+    -> ΔwoRP: -0.019500389128608034 ± 0.003988796625928178
+  DET:      0.999909712993651 ± 3.375215161062036e-5
+    -> ΔwoRP: 9.834061099556202e-6 ± 3.375215161062036e-5
+  L:        41.952329107369 ± 1.4135974575626142
+    -> ΔwoRP: 1.4204217884144867 ± 1.4135974575626142
+  ENTR:     4.472483061611638 ± 0.02862848537879334
+    -> ΔwoRP: -0.05173906891650759 ± 0.02862848537879334
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 817442
+  RR:       0.09489365494296578 (ΔwoRP: -0.02560836523924219)
+  DET:      0.9999157205292751 (ΔwoRP: 1.5841596723742413e-5)
+  L:        41.6708479678876 (ΔwoRP: 1.1389406489330867)
+  ENTR:     4.442449861300334 (ΔwoRP: -0.08177226922781156)
+
+=== PERFORMANCE - Importance Stratified Memory LFBOTH ===
+
+  [Benchmark W/O Seed]
+runtime:     2.57 ms
+allocations: 130
+storage:     124.86 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     3.0 ms
+allocations: 130
+storage:     124.86 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 15313.41 ± 360.58
+  RR:       0.13061512266634998 ± 0.0028751195611440568
+    -> ΔwoRP: 0.010113102484142003 ± 0.0028751195611440568
+  DET:      0.999911911764706 ± 0.00021185222427186462
+    -> ΔwoRP: 1.2032832154562634e-5 ± 0.00021185222427186462
+  L:        41.02321664165551 ± 1.166767411498614
+    -> ΔwoRP: 0.49130932270099237 ± 1.166767411498614
+  ENTR:     4.469039155208765 ± 0.03115389447481123
+    -> ΔwoRP: -0.05518297531938021 ± 0.03115389447481123
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 15610
+  RR:       0.12812299807815503 (ΔwoRP: 0.007620977895947054)
+  DET:      1.0 (ΔwoRP: 0.00010012106744861082)
+  L:        40.74975746867797 (ΔwoRP: 0.2178501497234535)
+  ENTR:     4.478812961390383 (ΔwoRP: -0.04540916913776272)
+
+=== PERFORMANCE - Hybrid (LFboth Condition) ===
+
+  [Benchmark W/O Seed]
+runtime:     18.69 ms
+allocations: 121
+storage:     84.27 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     34.2 ms
+allocations: 122
+storage:     84.37 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 580846.06 ± 71961.9
+  RR:       0.13667931209057738 ± 0.00534398824450168
+    -> ΔwoRP: 0.016177291908369404 ± 0.00534398824450168
+  DET:      0.9999001314126312 ± 4.268062230822383e-5
+    -> ΔwoRP: 2.524800798431315e-7 ± 4.268062230822383e-5
+  L:        40.496336103702525 ± 1.2631844575027713
+    -> ΔwoRP: -0.03557121525199136 ± 1.2631844575027713
+  ENTR:     4.439444387655758 ± 0.027922729138811705
+    -> ΔwoRP: -0.08477774287238748 ± 0.027922729138811705
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 619511
+  RR:       0.12703083561066714 (ΔwoRP: 0.006528815428459164)
+  DET:      0.9998602233884392 (ΔwoRP: -3.965554411222705e-5)
+  L:        39.56058320764203 (ΔwoRP: -0.9713241113124838)
+  ENTR:     4.415893919671122 (ΔwoRP: -0.1083282108570236)
+
+=== PERFORMANCE - Hybrid (Forward Condition) ===
+
+  [Benchmark W/O Seed]
+runtime:     18.21 ms
+allocations: 121
+storage:     84.27 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     23.54 ms
+allocations: 122
+storage:     84.37 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 584105.83 ± 63965.45
+  RR:       0.13655505104466797 ± 0.005221861134551334
+    -> ΔwoRP: 0.016053030862460002 ± 0.005221861134551334
+  DET:      0.9998985309443573 ± 4.178109825352245e-5
+    -> ΔwoRP: -1.3479881940670069e-6 ± 4.178109825352245e-5
+  L:        40.53090056812222 ± 1.2650791880220142
+    -> ΔwoRP: -0.0010067508322961771 ± 1.2650791880220142
+  ENTR:     4.440093309345826 ± 0.027812919211491954
+    -> ΔwoRP: -0.08412882118231924 ± 0.027812919211491954
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 619511
+  RR:       0.12703083561066714 (ΔwoRP: 0.006528815428459164)
+  DET:      0.9998602233884392 (ΔwoRP: -3.965554411222705e-5)
+  L:        39.56058320764203 (ΔwoRP: -0.9713241113124838)
+  ENTR:     4.415893919671122 (ΔwoRP: -0.1083282108570236)
+
+
+======================================================================
+ SYSTEM: KLASSE 2: PERIODIC (HARMONIC OSCILLATOR)
+======================================================================
+
+=== PERFORMANCE - woRP (BASELINE) ===
+runtime:     248.2 ms
+allocations: 3
+storage:     78.19 KiB
+RR:   0.16869916168804264
+DET:  0.9998969369319293
+L:    6.370145543977406
+ENTR: 1.9267486031067216
+
+=== PERFORMANCE - Norberts Sampling ===
+
+  [Benchmark W/O Seed]
+runtime:     1.86 ms
+allocations: 53
+storage:     159.2 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     1.87 ms
+allocations: 121
+storage:     162.36 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 66934.03 ± 1911.54
+  RR:       0.1678152949093234 ± 0.06662473851025494
+    -> ΔwoRP: -0.0008838667787192389 ± 0.06662473851025494
+  DET:      0.9998876906871622 ± 0.0001136400208853186
+    -> ΔwoRP: -9.246244767058265e-6 ± 0.0001136400208853186
+  L:        6.296801072722242 ± 2.4894559649023997
+    -> ΔwoRP: -0.0733444712551643 ± 2.4894559649023997
+  ENTR:     1.9163839522246495 ± 0.030535621356199277
+    -> ΔwoRP: -0.010364650882072057 ± 0.030535621356199277
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 68745
+  RR:       0.310202283300289 (ΔwoRP: 0.14150312161224635)
+  DET:      0.9999164508313142 (ΔwoRP: 1.9513899384926425e-5)
+  L:        11.97997997997998 (ΔwoRP: 5.609834436002574)
+  ENTR:     1.9878967476966698 (ΔwoRP: 0.06114814458994822)
+
+=== PERFORMANCE - Importance Stratified Memory ===
+
+  [Benchmark W/O Seed]
+runtime:     3.49 ms
+allocations: 86
+storage:     176.92 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     3.28 ms
+allocations: 130
+storage:     178.92 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 100650.48 ± 2738.28
+  RR:       0.14853594771571413 ± 0.05914213890882219
+    -> ΔwoRP: -0.02016321397232851 ± 0.05914213890882219
+  DET:      0.9998998461346527 ± 9.214343239713986e-5
+    -> ΔwoRP: 2.909202723389015e-6 ± 9.214343239713986e-5
+  L:        8.18922431857968 ± 3.2587327880125585
+    -> ΔwoRP: 1.8190787746022732 ± 3.2587327880125585
+  ENTR:     2.2036895861001566 ± 0.03157395581856868
+    -> ΔwoRP: 0.27694098299343506 ± 0.03157395581856868
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 96342
+  RR:       0.1274874859776963 (ΔwoRP: -0.04121167571034634)
+  DET:      0.9998521147589471 (ΔwoRP: -4.482217298218405e-5)
+  L:        6.767767767767768 (ΔwoRP: 0.3976222237903615)
+  ENTR:     2.2395955728017842 (ΔwoRP: 0.31284696969506265)
+
+=== PERFORMANCE - Importance Stratified Memory EP ===
+
+  [Benchmark W/O Seed]
+runtime:     3.49 ms
+allocations: 54
+storage:     175.45 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     3.43 ms
+allocations: 130
+storage:     178.93 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 100566.5 ± 2812.8
+  RR:       0.15137709286340095 ± 0.06166069995190766
+    -> ΔwoRP: -0.017322068824641684 ± 0.06166069995190766
+  DET:      0.9999011357948928 ± 9.665702767565904e-5
+    -> ΔwoRP: 4.198862963544769e-6 ± 9.665702767565904e-5
+  L:        8.33714588120824 ± 3.388870237430778
+    -> ΔwoRP: 1.967000337230834 ± 3.388870237430778
+  ENTR:     2.2028354728907376 ± 0.031445487209057994
+    -> ΔwoRP: 0.276086869784016 ± 0.031445487209057994
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 99457
+  RR:       0.1722890020889068 (ΔwoRP: 0.0035898404008641582)
+  DET:      0.9998936453070991 (ΔwoRP: -3.291624830148443e-6)
+  L:        9.41091091091091 (ΔwoRP: 3.0407653669335044)
+  ENTR:     2.230790756844401 (ΔwoRP: 0.3040421537376796)
+
+=== PERFORMANCE - Importance Stratified Memory LFBOTH ===
+
+  [Benchmark W/O Seed]
+runtime:     18.31 ms
+allocations: 122
+storage:     100.75 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     17.56 ms
+allocations: 130
+storage:     124.87 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 11060.96 ± 371.23
+  RR:       0.18101265040298375 ± 0.005867558297905838
+    -> ΔwoRP: 0.012313488714941118 ± 0.005867558297905838
+  DET:      0.9998945 ± 0.00023167525423190973
+    -> ΔwoRP: -2.436931929250541e-6 ± 0.00023167525423190973
+  L:        6.955000446341536 ± 0.35523569894104134
+    -> ΔwoRP: 0.5848549023641301 ± 0.35523569894104134
+  ENTR:     2.0282153445550346 ± 0.0578869770866417
+    -> ΔwoRP: 0.10146674144831302 ± 0.0578869770866417
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 11070
+  RR:       0.18066847335140018 (ΔwoRP: 0.011969311663357546)
+  DET:      1.0 (ΔwoRP: 0.00010306306807073007)
+  L:        6.683379267519554 (ΔwoRP: 0.3132337235421474)
+  ENTR:     1.9564003708872644 (ΔwoRP: 0.029651767780542793)
+
+=== PERFORMANCE - Hybrid (LFboth Condition) ===
+
+  [Benchmark W/O Seed]
+runtime:     16.84 ms
+allocations: 122
+storage:     84.37 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     17.8 ms
+allocations: 130
+storage:     124.87 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 16543.08 ± 16706.15
+  RR:       0.18287373455426753 ± 0.0283706245137325
+    -> ΔwoRP: 0.014174572866224894 ± 0.0283706245137325
+  DET:      0.9998944664227853 ± 0.00021941052267220103
+    -> ΔwoRP: -2.470509143925881e-6 ± 0.00021941052267220103
+  L:        6.859884690916868 ± 0.9813445730602687
+    -> ΔwoRP: 0.48973914693946163 ± 0.9813445730602687
+  ENTR:     2.0093990473350574 ± 0.057674748445163
+    -> ΔwoRP: 0.08265044422833578 ± 0.057674748445163
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 11070
+  RR:       0.18066847335140018 (ΔwoRP: 0.011969311663357546)
+  DET:      1.0 (ΔwoRP: 0.00010306306807073007)
+  L:        6.683379267519554 (ΔwoRP: 0.3132337235421474)
+  ENTR:     1.9564003708872644 (ΔwoRP: 0.029651767780542793)
+
+=== PERFORMANCE - Hybrid (Forward Condition) ===
+
+  [Benchmark W/O Seed]
+runtime:     17.02 ms
+allocations: 122
+storage:     84.4 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     17.89 ms
+allocations: 130
+storage:     124.87 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 15708.58 ± 15542.17
+  RR:       0.18209215017792038 ± 0.021159508591040963
+    -> ΔwoRP: 0.013392988489877744 ± 0.021159508591040963
+  DET:      0.9999032322959934 ± 0.00021410113362652883
+    -> ΔwoRP: 6.295364064157205e-6 ± 0.00021410113362652883
+  L:        6.8525889033043725 ± 0.7648816757682301
+    -> ΔwoRP: 0.48244335932696636 ± 0.7648816757682301
+  ENTR:     2.0130565167694723 ± 0.05714700325649008
+    -> ΔwoRP: 0.0863079136627507 ± 0.05714700325649008
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 11070
+  RR:       0.18066847335140018 (ΔwoRP: 0.011969311663357546)
+  DET:      1.0 (ΔwoRP: 0.00010306306807073007)
+  L:        6.683379267519554 (ΔwoRP: 0.3132337235421474)
+  ENTR:     1.9564003708872644 (ΔwoRP: 0.029651767780542793)
+
+
+======================================================================
+ SYSTEM: KLASSE 3: HOMOGENOUS RP (WHITE NOISE)
+======================================================================
+
+=== PERFORMANCE - woRP (BASELINE) ===
+runtime:     1519.98 ms
+allocations: 3
+storage:     78.21 KiB
+RR:   0.31000792896992163
+DET:  0.6957785520242857
+L:    2.8168341761073212
+ENTR: 1.24791486522226
+
+=== PERFORMANCE - Norberts Sampling ===
+
+  [Benchmark W/O Seed]
+runtime:     1.0 ms
+allocations: 121
+storage:     162.36 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     0.85 ms
+allocations: 121
+storage:     162.36 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 8075.74 ± 154.13
+  RR:       0.3115337307606195 ± 0.005408644511157735
+    -> ΔwoRP: 0.0015258017906978893 ± 0.005408644511157735
+  DET:      0.6955117667674653 ± 0.010329478379175108
+    -> ΔwoRP: -0.0002667852568204454 ± 0.010329478379175108
+  L:        2.8177875702338677 ± 0.04000232867228232
+    -> ΔwoRP: 0.0009533941265464918 ± 0.04000232867228232
+  ENTR:     1.2450782627868708 ± 0.022354847083860065
+    -> ΔwoRP: -0.0028366024353891905 ± 0.022354847083860065
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 7741
+  RR:       0.32202491386164855 (ΔwoRP: 0.012016984891726923)
+  DET:      0.693278463648834 (ΔwoRP: -0.002500088375451681)
+  L:        2.865079365079365 (ΔwoRP: 0.048245188972043884)
+  ENTR:     1.2522346512278124 (ΔwoRP: 0.004319786005552384)
+
+=== PERFORMANCE - Importance Stratified Memory ===
+
+  [Benchmark W/O Seed]
+runtime:     1.56 ms
+allocations: 130
+storage:     178.92 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     1.73 ms
+allocations: 130
+storage:     178.92 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 8099.71 ± 155.06
+  RR:       0.31090689206099326 ± 0.005290283031157501
+    -> ΔwoRP: 0.0008989630910716251 ± 0.005290283031157501
+  DET:      0.6958816701596297 ± 0.009655561667988527
+    -> ΔwoRP: 0.0001031181353439159 ± 0.009655561667988527
+  L:        2.815713041282345 ± 0.0408290192054024
+    -> ΔwoRP: -0.0011211348249764441 ± 0.0408290192054024
+  ENTR:     1.2451279719043753 ± 0.02125128751215009
+    -> ΔwoRP: -0.002786893317884731 ± 0.02125128751215009
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 7978
+  RR:       0.3114241001564945 (ΔwoRP: 0.0014161711865728899)
+  DET:      0.6862088218872139 (ΔwoRP: -0.009569730137071852)
+  L:        2.8059360730593608 (ΔwoRP: -0.010898103047960461)
+  ENTR:     1.2252810802392875 (ΔwoRP: -0.022633784982972527)
+
+=== PERFORMANCE - Importance Stratified Memory EP ===
+
+  [Benchmark W/O Seed]
+runtime:     1.57 ms
+allocations: 130
+storage:     178.92 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     1.57 ms
+allocations: 130
+storage:     178.92 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 8093.7 ± 155.44
+  RR:       0.31095111297944455 ± 0.00541010452157435
+    -> ΔwoRP: 0.0009431840095229238 ± 0.00541010452157435
+  DET:      0.6954464239613776 ± 0.010132213240336595
+    -> ΔwoRP: -0.00033212806290816577 ± 0.010132213240336595
+  L:        2.815934135272494 ± 0.0409654242091249
+    -> ΔwoRP: -0.0009000408348271982 ± 0.0409654242091249
+  ENTR:     1.2444443229989266 ± 0.02231312949835303
+    -> ΔwoRP: -0.003470542223333428 ± 0.02231312949835303
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 8127
+  RR:       0.30611192297773576 (ΔwoRP: -0.003896005992185869)
+  DET:      0.6778994664420107 (ΔwoRP: -0.017879085582275023)
+  L:        2.8300117233294255 (ΔwoRP: 0.013177547222104291)
+  ENTR:     1.2183067996289512 (ΔwoRP: -0.029608065593308863)
+
+=== PERFORMANCE - Importance Stratified Memory LFBOTH ===
+
+  [Benchmark W/O Seed]
+runtime:     1.14 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     1.04 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 4450.34 ± 72.06
+  RR:       0.4495214712915063 ± 0.0072786672072006975
+    -> ΔwoRP: 0.1395135423215847 ± 0.0072786672072006975
+  DET:      0.6958644999999998 ± 0.010347364771172795
+    -> ΔwoRP: 8.594797571404023e-5 ± 0.010347364771172795
+  L:        2.8184931607607697 ± 0.02685924307594594
+    -> ΔwoRP: 0.001658984653448492 ± 0.02685924307594594
+  ENTR:     1.2474607872519783 ± 0.018972508931006243
+    -> ΔwoRP: -0.000454077970281741 ± 0.018972508931006243
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 4433
+  RR:       0.45116174148432164 (ΔwoRP: 0.1411538125144)
+  DET:      0.6789999999999997 (ΔwoRP: -0.01677855202428602)
+  L:        2.812130717365976 (ΔwoRP: -0.004703458741345035)
+  ENTR:     1.2170702796361048 (ΔwoRP: -0.030844585586155215)
+
+=== PERFORMANCE - Hybrid (LFboth Condition) ===
+
+  [Benchmark W/O Seed]
+runtime:     1.14 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     1.21 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 4457.5 ± 73.5
+  RR:       0.4488037837747431 ± 0.007407823228983937
+    -> ΔwoRP: 0.13879585480482148 ± 0.007407823228983937
+  DET:      0.6959364999999998 ± 0.010204918329320828
+    -> ΔwoRP: 0.00015794797571411223 ± 0.010204918329320828
+  L:        2.8182832555067603 ± 0.026697745378601142
+    -> ΔwoRP: 0.0014490793994390572 ± 0.026697745378601142
+  ENTR:     1.247520706187345 ± 0.018500156105590766
+    -> ΔwoRP: -0.00039415903491502036 ± 0.018500156105590766
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 4433
+  RR:       0.45116174148432164 (ΔwoRP: 0.1411538125144)
+  DET:      0.6789999999999997 (ΔwoRP: -0.01677855202428602)
+  L:        2.812130717365976 (ΔwoRP: -0.004703458741345035)
+  ENTR:     1.2170702796361048 (ΔwoRP: -0.030844585586155215)
+
+=== PERFORMANCE - Hybrid (Forward Condition) ===
+
+  [Benchmark W/O Seed]
+runtime:     1.14 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     1.16 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 4457.5 ± 75.45
+  RR:       0.44881032129754383 ± 0.007603104347211809
+    -> ΔwoRP: 0.1388023923276222 ± 0.007603104347211809
+  DET:      0.6951805 ± 0.010338716497167767
+    -> ΔwoRP: -0.0005980520242857557 ± 0.010338716497167767
+  L:        2.817077245956509 ± 0.026599464097733803
+    -> ΔwoRP: 0.00024306984918798236 ± 0.026599464097733803
+  ENTR:     1.2459818269737284 ± 0.018885478735657695
+    -> ΔwoRP: -0.0019330382485316377 ± 0.018885478735657695
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 4433
+  RR:       0.45116174148432164 (ΔwoRP: 0.1411538125144)
+  DET:      0.6789999999999997 (ΔwoRP: -0.01677855202428602)
+  L:        2.812130717365976 (ΔwoRP: -0.004703458741345035)
+  ENTR:     1.2170702796361048 (ΔwoRP: -0.030844585586155215)
+
+
+======================================================================
+ SYSTEM: KLASSE 4: DRIFT (RANDOM WALK)
+======================================================================
+
+=== PERFORMANCE - woRP (BASELINE) ===
+runtime:     429.29 ms
+allocations: 3
+storage:     78.21 KiB
+RR:   0.21585802044425884
+DET:  0.9889694676180966
+L:    34.58999692843248
+ENTR: 3.5367546661084104
+
+=== PERFORMANCE - Norberts Sampling ===
+
+  [Benchmark W/O Seed]
+runtime:     12.69 ms
+allocations: 105
+storage:     161.62 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     13.4 ms
+allocations: 121
+storage:     162.36 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 184970.33 ± 4055.32
+  RR:       0.23714008770670342 ± 0.01368399340242586
+    -> ΔwoRP: 0.02128206726244458 ± 0.01368399340242586
+  DET:      0.9888866451058113 ± 0.0008024072255667891
+    -> ΔwoRP: -8.282251228530768e-5 ± 0.0008024072255667891
+  L:        34.56653554614586 ± 1.9221205080608905
+    -> ΔwoRP: -0.023461382286619425 ± 1.9221205080608905
+  ENTR:     3.4488322742568216 ± 0.046170974784686666
+    -> ΔwoRP: -0.08792239185158879 ± 0.046170974784686666
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 186476
+  RR:       0.22912194478966594 (ΔwoRP: 0.013263924345407102)
+  DET:      0.9887612746810216 (ΔwoRP: -0.0002081929370749691)
+  L:        33.12044046799725 (ΔwoRP: -1.4695564604352285)
+  ENTR:     3.4562719601227028 (ΔwoRP: -0.08048270598570761)
+
+=== PERFORMANCE - Importance Stratified Memory ===
+
+  [Benchmark W/O Seed]
+runtime:     16.85 ms
+allocations: 130
+storage:     178.93 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     17.64 ms
+allocations: 130
+storage:     178.95 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 197101.63 ± 4495.36
+  RR:       0.22900257197016727 ± 0.014852010737700273
+    -> ΔwoRP: 0.013144551525908432 ± 0.014852010737700273
+  DET:      0.989217630833254 ± 0.0008139333229813279
+    -> ΔwoRP: 0.00024816321515741535 ± 0.0008139333229813279
+  L:        35.29031269955453 ± 2.29017629195812
+    -> ΔwoRP: 0.7003157711220567 ± 2.29017629195812
+  ENTR:     3.4695238733550173 ± 0.04528751089405672
+    -> ΔwoRP: -0.06723079275339305 ± 0.04528751089405672
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 198407
+  RR:       0.2258144267998181 (ΔwoRP: 0.009956406355559277)
+  DET:      0.9889733914641538 (ΔwoRP: 3.923846057185543e-6)
+  L:        35.226323119777156 (ΔwoRP: 0.6363261913446792)
+  ENTR:     3.4236046505015083 (ΔwoRP: -0.11315001560690208)
+
+=== PERFORMANCE - Importance Stratified Memory EP ===
+
+  [Benchmark W/O Seed]
+runtime:     16.98 ms
+allocations: 102
+storage:     177.71 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     17.46 ms
+allocations: 130
+storage:     178.93 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 197125.41 ± 4507.09
+  RR:       0.2282946132692812 ± 0.013452576456815087
+    -> ΔwoRP: 0.012436592825022352 ± 0.013452576456815087
+  DET:      0.9891859077915112 ± 0.0007823790770134183
+    -> ΔwoRP: 0.00021644017341460042 ± 0.0007823790770134183
+  L:        35.174427049540164 ± 2.0621727092724447
+    -> ΔwoRP: 0.5844301211076868 ± 2.0621727092724447
+  ENTR:     3.4659179085401712 ± 0.04526255954784878
+    -> ΔwoRP: -0.07083675756823915 ± 0.04526255954784878
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 199562
+  RR:       0.2438211328833257 (ΔwoRP: 0.02796311243906685)
+  DET:      0.9898579031304316 (ΔwoRP: 0.000888435512335084)
+  L:        38.52231520223152 (ΔwoRP: 3.9323182737990408)
+  ENTR:     3.506187118408789 (ΔwoRP: -0.030567547699621223)
+
+=== PERFORMANCE - Importance Stratified Memory LFBOTH ===
+
+  [Benchmark W/O Seed]
+runtime:     4.6 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     4.11 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 7547.88 ± 145.23
+  RR:       0.2650731690547981 ± 0.0051015031007639955
+    -> ΔwoRP: 0.04921514861053927 ± 0.0051015031007639955
+  DET:      0.9891179999999998 ± 0.002318394045659831
+    -> ΔwoRP: 0.0001485323819032658 ± 0.002318394045659831
+  L:        35.17695148613087 ± 1.8196445195253816
+    -> ΔwoRP: 0.586954557698391 ± 1.8196445195253816
+  ENTR:     3.513870315864584 ± 0.1415235876963954
+    -> ΔwoRP: -0.02288435024382629 ± 0.1415235876963954
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 7382
+  RR:       0.270929287455974 (ΔwoRP: 0.055071267011715164)
+  DET:      0.9875 (ΔwoRP: -0.0014694676180965205)
+  L:        38.527089283106655 (ΔwoRP: 3.937092354674178)
+  ENTR:     3.44695434022687 (ΔwoRP: -0.0898003258815403)
+
+=== PERFORMANCE - Hybrid (LFboth Condition) ===
+
+  [Benchmark W/O Seed]
+runtime:     13.85 ms
+allocations: 121
+storage:     84.27 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     13.55 ms
+allocations: 121
+storage:     84.27 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 184629.98 ± 4018.98
+  RR:       0.27397415732153235 ± 0.016908106772868144
+    -> ΔwoRP: 0.058116136877273517 ± 0.016908106772868144
+  DET:      0.9889643824134701 ± 0.0008145151811561563
+    -> ΔwoRP: -5.0852046264981965e-6 ± 0.0008145151811561563
+  L:        34.62951564565924 ± 2.025297913193555
+    -> ΔwoRP: 0.03951871722676259 ± 2.025297913193555
+  ENTR:     3.45378986291109 ± 0.04751674996089473
+    -> ΔwoRP: -0.08296480319732025 ± 0.04751674996089473
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 186708
+  RR:       0.2612796452214153 (ΔwoRP: 0.045421624777156444)
+  DET:      0.9887255806325974 (ΔwoRP: -0.00024388698549915322)
+  L:        33.26413793103448 (ΔwoRP: -1.3258589973979937)
+  ENTR:     3.4532498097039555 (ΔwoRP: -0.08350485640445493)
+
+=== PERFORMANCE - Hybrid (Forward Condition) ===
+
+  [Benchmark W/O Seed]
+runtime:     13.96 ms
+allocations: 121
+storage:     84.27 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     10.2 ms
+allocations: 121
+storage:     84.27 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 184694.7 ± 4169.65
+  RR:       0.2732534410685813 ± 0.017312730571972138
+    -> ΔwoRP: 0.05739542062432246 ± 0.017312730571972138
+  DET:      0.9889162458872238 ± 0.0008165279426140081
+    -> ΔwoRP: -5.32217308727434e-5 ± 0.0008165279426140081
+  L:        34.570464770872086 ± 2.0027720896469003
+    -> ΔwoRP: -0.019532157560391283 ± 2.0027720896469003
+  ENTR:     3.4510005514984563 ± 0.04610608062388291
+    -> ΔwoRP: -0.08575411460995408 ± 0.04610608062388291
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 186708
+  RR:       0.2612796452214153 (ΔwoRP: 0.045421624777156444)
+  DET:      0.9887255806325974 (ΔwoRP: -0.00024388698549915322)
+  L:        33.26413793103448 (ΔwoRP: -1.3258589973979937)
+  ENTR:     3.4532498097039555 (ΔwoRP: -0.08350485640445493)
+%
+\item ich geh kaputt. same shit, wie bevor. Lorenz Norbert und abkack und harm osc smiLFb und abkack. und bei drift norbert abkack und bei noise smiLFb und abkack wobei ich hier gerne smilfb verbessern will, falls möglich. ist für später noch zu klären wie drift und noise am besten zu lösen sind ohne das bis dahin optimierte andere für periodishc und chaotisch kaputt zu machen!
+%
+\item also im Endeffekt am selben punkt wie zuvor: siehe letzteres und daraus die fragen: weshalb? und was tun um das zu fixen ?
+%
+\item ist es irgendetwas in mytestbigRP2?
+%
+\item harm osc hat nahe LOI nur leere/weiße diagonalen, respektive pixel. Dadurch verballert algo die 20 versuche (je nahc box länge) und sagt dann, ist nicht periodisch.
+\\
+Lorenz (schummelt): Chaotische Systeme haben oft dicke laminare Bänder. Die Heuristik findet Linien z. B. bei den Distanzen $d=50, 51$ und $52$. Sie zählt das als 3 getrennte lange Linien und denkt: "Ah, periodisch!"
+CHECKE ICH NICHT!!?
+\\
+Lösung: boxen aktivieren und periodizität prüfen doch komplett trennen. Zeit damit zerschossen??
+%
+### 02 h : 32 min am 10.09.2026
+%
+\item 
 }

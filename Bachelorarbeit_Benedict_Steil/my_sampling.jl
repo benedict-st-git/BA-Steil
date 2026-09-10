@@ -422,7 +422,7 @@ function get_hist_diagonal_importance_stratified_memory_sampled(x::AbstractMatri
         if i_start == 1 || j_start == 1
             # We are at the lower border – no previous points
         else
-            D2_prev = 0.0 # verbesserung: zero(T) ?!
+            D2_prev = zero(T) # verbesserung: zero(T) ?!
             @inbounds for k in 1:dim
                 D2_prev += (x[i_start-1,k] - x[j_start-1,k])^2
             end
@@ -433,7 +433,7 @@ function get_hist_diagonal_importance_stratified_memory_sampled(x::AbstractMatri
         # Line found, now count line length
         cnt = 0
         @inbounds for offset in 0:(N - i_start)
-            D2_line = 0.0 # verbesserung: zero(T) ?!
+            D2_line = zero(T) # verbesserung: zero(T) ?!
             for k in 1:dim
                 D2_line += (x[i_start + offset,k] - x[j_start + offset,k])^2
             end
@@ -599,7 +599,7 @@ function get_hist_diagonal_importance_stratified_memory_sampled_LFboth(x::Abstra
         # Black Point found, now count line length
         cnt = 0
         @inbounds for offset in 0:(N - i_start) # weshalb klappt das?
-            D2_line_following = 0.0 # verbesserung: zero(T) ?!
+            D2_line_following = zero(T) # verbesserung: zero(T) ?!
             for k in 1:dim
                 D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
             end
@@ -610,7 +610,7 @@ function get_hist_diagonal_importance_stratified_memory_sampled_LFboth(x::Abstra
             end
         end
         @inbounds for offset in 1:(j_start-1) # weshalb klappt das?
-            D2_line_prev = 0.0 # verbesserung: zero(T) ?!
+            D2_line_prev = zero(T) # verbesserung: zero(T) ?!
             for k in 1:dim
                 D2_line_prev += (x[i_start - offset ,k] - x[j_start - offset ,k])^2
             end
@@ -773,7 +773,7 @@ function get_hist_diagonal_importance_stratified_memory_sampledEP(x::AbstractMat
         if i_start == N || j_start == N
             # We are at the lower border – no previous points
         else
-            D2_follow = 0.0 # verbesserung: zero(T) ?!
+            D2_follow = zero(T) # verbesserung: zero(T) ?!
             @inbounds for k in 1:dim
                 D2_follow += (x[i_start+1,k] - x[j_start+1,k])^2
             end
@@ -784,7 +784,7 @@ function get_hist_diagonal_importance_stratified_memory_sampledEP(x::AbstractMat
         # Line found, now count line length
         cnt = 0
         @inbounds for offset in 0:(j_start - 1)
-            D2_line = 0.0 # verbesserung: zero(T) ?!
+            D2_line = zero(T) # verbesserung: zero(T) ?!
             for k in 1:dim
                 D2_line += (x[i_start - offset,k] - x[j_start - offset,k])^2
             end
@@ -898,8 +898,8 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
     
     active_boxs = Int[]
     check_cnt = 0 # black points checked for being part of a line of at least length of 50 (dynamisch besser?!)
-    check_cnt_max = 10 # dynamisch besser !?
-    check_length = 50 # dynamisch besser !?
+    check_cnt_max = 20 # dynamisch besser !?
+    check_length = clamp(N ÷ 10, 20, 100) # dynamisch besser !? -> !!
     LFboth_check_length = check_length ÷ 2
     long_lines_goal = 3 # dynamisch besser !?
     is_periodic = false
@@ -930,42 +930,47 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
                 push!(active_boxs, current_box)
                 if check_periodicity && check_cnt < check_cnt_max
                     check_cnt += 1
-                    is_long_line_following = true
-                    is_long_line_prev = true
-        
-                    # Black Point found, estimate periodicity
-                    @inbounds for offset in 0:min(LFboth_check_length, (N - i_start)) 
-                        D2_line_following = zero(T) # verbesserung: zero(T) ?!
-                        for k in 1:dim
-                            D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
-                        end
-                        if D2_line_following > ε2          # Count points belonging to diagonal
-                            is_long_line_following = false
-                            break                 # Line ends
-                        end
-                    end
-                    @inbounds for offset in 1:min(LFboth_check_length, (j_start-1)) 
-                        D2_line_prev = zero(T) # verbesserung: zero(T) ?!
-                        for k in 1:dim
-                            D2_line_prev += (x[i_start - offset ,k] - x[j_start - offset ,k])^2
-                        end
-                        if D2_line_prev > ε2          # Count points belonging to diagonal
-                            is_long_line_prev = false
-                            break                 # Line ends
-                        end
-                    end
-                    if is_long_line_following && is_long_line_prev
-                        if d != d1 && d != d2 && d != d3
-                            long_lines += 1
-                            if long_lines == 1
-                                d1 = d
-                            elseif long_lines == 2
-                                d2 = d
-                            elseif long_lines == 3
-                                d3 = d    
+                    
+                    max_possible_offset = N - max(i_start, j_start) # max abstadn zu rändern
+                    if max_possible_offset < check_length
+
+                    else
+                        is_long_line_following = true
+                        is_long_line_prev = true
+                        # Black Point found, estimate periodicity
+                        @inbounds for offset in 0:min(LFboth_check_length, (N - i_start)) 
+                            D2_line_following = zero(T) # verbesserung: zero(T) ?!
+                            @inbounds for k in 1:dim
+                                D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
+                            end
+                            if D2_line_following > ε2          # Count points belonging to diagonal
+                                is_long_line_following = false
+                                break                 # Line ends
                             end
                         end
-                    end
+                        @inbounds for offset in 1:min(LFboth_check_length, (j_start-1)) 
+                            D2_line_prev = zero(T) # verbesserung: zero(T) ?!
+                            @inbounds for k in 1:dim
+                                D2_line_prev += (x[i_start - offset ,k] - x[j_start - offset ,k])^2
+                            end
+                            if D2_line_prev > ε2          # Count points belonging to diagonal
+                                is_long_line_prev = false
+                                break                 # Line ends
+                            end
+                        end
+                        if is_long_line_following && is_long_line_prev
+                            if d != d1 && d != d2 && d != d3
+                                long_lines += 1
+                                if long_lines == 1
+                                    d1 = d
+                                elseif long_lines == 2
+                                    d2 = d
+                                elseif long_lines == 3
+                                    d3 = d    
+                                end
+                            end
+                        end
+                    end    
                 end
                 break # raus aus der current box falls schwarzen punkt gefunden
             end
@@ -973,9 +978,6 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
         if long_lines >= long_lines_goal # && check_periodicity
             is_periodic = true
             break
-
-        elseif check_cnt >= 10
-            check_periodicity = false # so check_cnt is not fortgeführt und bricht dann die prüfung der boxen für LFboth ab
         end
     end
 
@@ -1015,7 +1017,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
             cnt = 0
             @inbounds for offset in 0:(N - i_start)
                 D2_line = zero(T)
-                for k in 1:dim
+                @inbounds for k in 1:dim
                     D2_line += (x[i_start + offset,k] - x[j_start + offset,k])^2
                 end
                 if D2_line <= ε2          # Count points belonging to diagonal
@@ -1098,7 +1100,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
             cnt = 0
             @inbounds for offset in 0:(N - i_start) # weshalb klappt das?
                 D2_line_following = zero(T) # verbesserung: zero(T) ?!
-                for k in 1:dim
+                @inbounds for k in 1:dim
                     D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
                 end
                 if D2_line_following <= ε2          # Count points belonging to diagonal
@@ -1109,7 +1111,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_LFboth_condition(x::Abstract
             end
             @inbounds for offset in 1:(j_start-1) # weshalb klappt das?
                 D2_line_prev = zero(T) # verbesserung: zero(T) ?!
-                for k in 1:dim
+                @inbounds for k in 1:dim
                     D2_line_prev += (x[i_start - offset ,k] - x[j_start - offset ,k])^2
                 end
                 if D2_line_prev <= ε2          # Count points belonging to diagonal
@@ -1225,8 +1227,8 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
 
     active_boxs = Int[]
     check_cnt = 0 # black points checked for being part of a line of at least length of 50 (dynamisch besser?!)
-    check_cnt_max = 10 # dynamisch besser !?
-    check_length = 50 # dynamisch besser !?
+    check_cnt_max = 20 # dynamisch besser !?
+    check_length = clamp(N ÷ 10, 20, 100) # dynamisch besser !? -> !!
     long_lines_goal = 3 # dynamisch besser !?
     is_periodic = false
     long_lines = 0
@@ -1256,30 +1258,36 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
                 push!(active_boxs, current_box)
                 if check_periodicity && check_cnt < check_cnt_max
                     check_cnt += 1
-                    is_long_line = true
-                    # Black Point found, estimate periodicity
-                    @inbounds for offset in 1:min(check_length, (N - i_start)) # starte bie eins um nicht gefundenen schwarzen punkt nochmal zu prüfen und min(check_length, (N - i_start)) ist toll because ??
-                        D2_line_following = zero(T) # verbesserung: zero(T) ?!
-                        for k in 1:dim
-                            D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
-                        end
-                        if D2_line_following > ε2          # Count points belonging to diagonal
-                            is_long_line = false
-                            break                 # Line ends
-                        end
-                    end
-                    if is_long_line
-                        if d != d1 && d != d2 && d != d3
-                            long_lines += 1
-                            if long_lines == 1
-                                d1 = d
-                            elseif long_lines == 2
-                                d2 = d
-                            elseif long_lines == 3
-                                d3 = d    
+
+                    max_possible_offset = N - max(i_start, j_start) # max abstadn zu rändern
+                    if max_possible_offset < check_length
+                    
+                    else
+                        is_long_line = true
+                        # Black Point found, estimate periodicity
+                        @inbounds for offset in 1:check_length # starte bie eins um nicht gefundenen schwarzen punkt nochmal zu prüfen (abstandsberechnung kostet viel!) (genaugenommen ist also kriterium, dass linie 101 lang ist, nicht 100) ; min(check_length, (N - i_start)) ist toll because ?? -> ist nicht toll siehe journal
+                            D2_line_following = zero(T) # verbesserung: zero(T) ?!
+                            @inbounds for k in 1:dim
+                                D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
+                            end
+                            if D2_line_following > ε2          # Count points belonging to diagonal
+                                is_long_line = false
+                                break                 # Line ends
                             end
                         end
-                    end
+                        if is_long_line
+                            if d != d1 && d != d2 && d != d3
+                                long_lines += 1
+                                if long_lines == 1
+                                    d1 = d
+                                elseif long_lines == 2
+                                    d2 = d
+                                elseif long_lines == 3
+                                    d3 = d    
+                                end
+                            end
+                        end
+                    end    
                 end
                 break # raus aus der current box falls schwarzen punkt gefunden
             end
@@ -1287,9 +1295,6 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
         if long_lines >= long_lines_goal # && check_periodicity
             is_periodic = true
             break
-
-        elseif check_cnt >= 10
-            check_periodicity = false # so check_cnt is not fortgeführt und bricht dann die prüfung der boxen für LFboth ab
         end
     end
 
@@ -1317,7 +1322,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
             if i_start == 1 || j_start == 1
                 # We are at the lower border – no previous points
             else
-                D2_prev = 0.0
+                D2_prev = zero(T)
                 @inbounds for k in 1:dim
                     D2_prev += (x[i_start-1,k] - x[j_start-1,k])^2
                 end
@@ -1329,8 +1334,8 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
             # Line found, now count line length
             cnt = 0
             @inbounds for offset in 0:(N - i_start)
-                D2_line = 0.0
-                for k in 1:dim
+                D2_line = zero(T)
+                @inbounds for k in 1:dim
                     D2_line += (x[i_start + offset,k] - x[j_start + offset,k])^2
                 end
                 if D2_line <= ε2          # Count points belonging to diagonal
@@ -1414,8 +1419,8 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
             # Black Point found, now count line length
             cnt = 0
             @inbounds for offset in 0:(N - i_start) # weshalb klappt das?
-                D2_line_following = 0.0 # verbesserung: zero(T) ?!
-                for k in 1:dim
+                D2_line_following = zero(T) # verbesserung: zero(T) ?!
+                @inbounds for k in 1:dim
                     D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
                 end
                 if D2_line_following <= ε2          # Count points belonging to diagonal
@@ -1425,8 +1430,8 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
                 end
             end
             @inbounds for offset in 1:(j_start-1) # weshalb klappt das?
-                D2_line_prev = 0.0 # verbesserung: zero(T) ?!
-                for k in 1:dim
+                D2_line_prev = zero(T) # verbesserung: zero(T) ?!
+                @inbounds for k in 1:dim
                     D2_line_prev += (x[i_start - offset ,k] - x[j_start - offset ,k])^2
                 end
                 if D2_line_prev <= ε2          # Count points belonging to diagonal
