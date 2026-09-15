@@ -1161,10 +1161,10 @@ end
 """
     Sampling 4.1: (norbert for periodic or stratified- + memory + importance sampling with LFboth (optimized) for Drift, Noise and Chaotic) determined by xxxx value (RPLL(RPLineLengths) als Basis - 2 combinations in samplings)
     -
-    xxxx
+    smi_LFboth or norbert rand with condition that diagonals parallel to LOI have on the perpendicular diagonal form corner to corner ?black points (or if black point dann noch checken ob die ganze diagonale schwarz ist, als bedingung für is_periodic?)? in periodic distances, at least ?3? in ?half of the distance from LOI to the corner?
 """
 
-function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true, check_periodicity::Bool = true) where {T<:AbstractFloat}
+function hybrid_cond2(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true, check_periodicity::Bool = true) where {T<:AbstractFloat}
     N, dim = size(x)                  # Number of observations and variables
     L_local = zeros(Float64, N)           # Histogram for line lengths - mit typ float64, wegen korrektur in zählung der linien bestimmter länge (1/cnt)
     # L_local_old = zeros(Int, N)       # Histogram for line lengths
@@ -1186,46 +1186,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
     sum_n2_L = 0.0   # sum(n * L[n]) for n >= 2
     sum_L2   = 0.0   # sum(L[n]) for n >= 2
     
-
-
-    if s !== nothing
-        actual_s = s
-    elseif auto_s
-        estimated_RR = estimate_RR(x, ε)
-
-        if estimated_RR < 0.05
-            # SEHR DÜNNES RP (z.B. Rössler): 
-            # Wir brauchen ein sehr feines Raster, um die schmalen Bänder nicht zu verfehlen.
-            # 5-mal so viele Boxen wie wir M suchen (winzige Boxen).
-            actual_s = 5.0   
-            estimated_tries_per_box = 50
-            
-        elseif estimated_RR > 0.2
-            # SEHR DICHTES RP (z.B. Rauschen): 
-            # Die Trefferquote ist eh riesig, wir können die Boxen doppelt so groß machen,
-            # um Overhead zu sparen.
-            actual_s = 0.5   
-            estimated_tries_per_box = 12
-            
-        else
-            # NORMALFALL (estimated_RR zwischen 0.05 und 0.2 (mittel ca. 0.1)):
-            actual_s = 1.0   
-            estimated_tries_per_box = 24
-        end
-
-    else
-        actual_s = 1.0
-        estimated_tries_per_box = 24
-    end
     
-    s_tilde = M * actual_s
-    # box_length_dyn = 4000
-    # print(box_length_dyn)
-    num_boxes = min(total_pairs, max(1, round(Int, s_tilde)))
-    box_length_dyn = total_pairs ÷ num_boxes
-    current_box = 0
-
-    active_boxs = Int[]
     check_cnt = 0 # black points checked for being part of a line of at least length of 50 (dynamisch besser?!)
     check_cnt_max = 20 # dynamisch besser !?
     check_length = clamp(N ÷ 10, 20, 100) # dynamisch besser !? -> !!
@@ -1236,67 +1197,43 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
     d2 = -1
     d3 = -1
 
-    for current_box in 1:num_boxes
-        for _ in 1:estimated_tries_per_box # konstante anzahl an versuchen (z.B.: 10) pro box? oder dynamisch (wharshcienlichkeit weiß zu treffen nach der estimated_RR bei 7.7 (siehe oben))?
-            lower_bound = (current_box-1) * box_length_dyn + 1
-            upper_bound = current_box == num_boxes ? total_pairs : current_box * box_length_dyn
-
-            idx = rand(lower_bound:upper_bound)     # Random start pair (i,j) in linear notation
-            
-            d = ceil(Int, ((2.0 * N - 1) - sqrt(Float64((2.0 * N - 1)^2 - 8 * idx))) / 2) # which diagonal we are on
-            previous_elements = (d - 1) * N - (d - 1) * d ÷ 2
-            j_start = idx - previous_elements     # spalte
-            i_start = j_start + d
-
-            D2 = zero(T)
-            @inbounds for k in 1:dim
-                D2 += (x[i_start,k] - x[j_start,k])^2
-            end
-            if D2 > ε2
-                continue  
-            else
-                push!(active_boxs, current_box)
-                if check_periodicity && check_cnt < check_cnt_max
-                    check_cnt += 1
-
-                    max_possible_offset = N - max(i_start, j_start) # max abstadn zu rändern
-                    if max_possible_offset < check_length
-                    
-                    else
-                        is_long_line = true
-                        # Black Point found, estimate periodicity
-                        @inbounds for offset in 1:check_length # starte bie eins um nicht gefundenen schwarzen punkt nochmal zu prüfen (abstandsberechnung kostet viel!) (genaugenommen ist also kriterium, dass linie 101 lang ist, nicht 100) ; min(check_length, (N - i_start)) ist toll because ?? -> ist nicht toll siehe journal
-                            D2_line_following = zero(T) # verbesserung: zero(T) ?!
-                            @inbounds for k in 1:dim
-                                D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
-                            end
-                            if D2_line_following > ε2          # Count points belonging to diagonal
-                                is_long_line = false
-                                break                 # Line ends
-                            end
-                        end
-                        if is_long_line
-                            if d != d1 && d != d2 && d != d3
-                                long_lines += 1
-                                if long_lines == 1
-                                    d1 = d
-                                elseif long_lines == 2
-                                    d2 = d
-                                elseif long_lines == 3
-                                    d3 = d    
-                                end
-                            end
-                        end
-                    end    
+    # check periodicity by checking diagonals for black points (by going through the columns of the 2N÷3 th row <=> 2/3 of the diagonals are checked) and suffieciently equidistant periodic distances in between them and if so, then the line length is checked for sufficent length (dynamically determined conditions (sufficient length, fraction of the matrix/RP that is getting checked )? and absolute conditions (sufficient number of black diagonals, error in equidistance of the potential period in between the black diagonals)?)
+    xxxx
+    
+    if check_periodicity && check_cnt < check_cnt_max
+        check_cnt += 1
+        max_possible_offset = N - max(i_start, j_start) # max abstadn zu rändern
+        if max_possible_offset < check_length
+        
+        else
+            is_long_line = true
+            # Black Point found, estimate periodicity
+            @inbounds for offset in 1:check_length # starte bie eins um nicht gefundenen schwarzen punkt nochmal zu prüfen (abstandsberechnung kostet viel!) (genaugenommen ist also kriterium, dass linie 101 lang ist, nicht 100) ; min(check_length, (N - i_start)) ist toll because ?? -> ist nicht toll siehe journal
+                D2_line_following = zero(T) # verbesserung: zero(T) ?!
+                @inbounds for k in 1:dim
+                    D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
                 end
-                break # raus aus der current box falls schwarzen punkt gefunden
+                if D2_line_following > ε2          # Count points belonging to diagonal
+                    is_long_line = false
+                    break                 # Line ends
+                end
             end
-        end
-        if long_lines >= long_lines_goal # && check_periodicity
-            is_periodic = true
-            break
-        end
+            if is_long_line
+                if d != d1 && d != d2 && d != d3
+                    long_lines += 1
+                    if long_lines == 1
+                        d1 = d
+                    elseif long_lines == 2
+                        d2 = d
+                    elseif long_lines == 3
+                        d3 = d    
+                    end
+                end
+            end
+        end    
     end
+
+
 
     if is_periodic
         
@@ -1387,6 +1324,71 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
         return L_local, countAll
 
     else
+    
+    
+        if s !== nothing
+            actual_s = s
+        elseif auto_s
+            estimated_RR = estimate_RR(x, ε)
+
+            if estimated_RR < 0.05
+                # SEHR DÜNNES RP (z.B. Rössler): 
+                # Wir brauchen ein sehr feines Raster, um die schmalen Bänder nicht zu verfehlen.
+                # 5-mal so viele Boxen wie wir M suchen (winzige Boxen).
+                actual_s = 5.0   
+                estimated_tries_per_box = 50
+
+            elseif estimated_RR > 0.2
+                # SEHR DICHTES RP (z.B. Rauschen): 
+                # Die Trefferquote ist eh riesig, wir können die Boxen doppelt so groß machen,
+                # um Overhead zu sparen.
+                actual_s = 0.5   
+                estimated_tries_per_box = 12
+
+            else
+                # NORMALFALL (estimated_RR zwischen 0.05 und 0.2 (mittel ca. 0.1)):
+                actual_s = 1.0   
+                estimated_tries_per_box = 24
+            end
+
+        else
+            actual_s = 1.0
+            estimated_tries_per_box = 24
+        end
+
+        s_tilde = M * actual_s
+        # box_length_dyn = 4000
+        # print(box_length_dyn)
+        num_boxes = min(total_pairs, max(1, round(Int, s_tilde)))
+        box_length_dyn = total_pairs ÷ num_boxes
+        current_box = 0
+        active_boxs = Int[]
+
+        for current_box in 1:num_boxes
+            for _ in 1:estimated_tries_per_box # konstante anzahl an versuchen (z.B.: 10) pro box? oder dynamisch (wharshcienlichkeit weiß zu treffen nach der estimated_RR bei 7.7 (siehe oben))?
+                lower_bound = (current_box-1) * box_length_dyn + 1
+                upper_bound = current_box == num_boxes ? total_pairs : current_box * box_length_dyn
+
+                idx = rand(lower_bound:upper_bound)     # Random start pair (i,j) in linear notation
+
+                d = ceil(Int, ((2.0 * N - 1) - sqrt(Float64((2.0 * N - 1)^2 - 8 * idx))) / 2) # which diagonal we are on
+                previous_elements = (d - 1) * N - (d - 1) * d ÷ 2
+                j_start = idx - previous_elements     # spalte
+                i_start = j_start + d
+
+                D2 = zero(T)
+                @inbounds for k in 1:dim
+                    D2 += (x[i_start,k] - x[j_start,k])^2
+                end
+                if D2 > ε2
+                    continue  
+                else
+                    push!(active_boxs, current_box)
+                    break # raus aus der current box falls schwarzen punkt gefunden
+                end
+            end
+        end
+
 
         current_box = 0
         while count < M

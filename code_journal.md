@@ -8665,5 +8665,28 @@ Lösung: boxen aktivieren und periodizität prüfen doch komplett trennen. Zeit 
 %
 ### 02 h : 32 min am 10.09.2026
 %
-\item 
+# 14.09.2026
+%
+## trennen von priod prüfung und boxen aktivieren und norberts idee, statt komischer reiner längen prüfung
+%
+\item also zunächst boxen aktivierung lassen wie zuvor, wobei immer noch zu klären ist ob eine zero allocation methode anwendbar ist und für optimierung sorgt bie der boxen aktivierung!\\
+eigentlich kann man doch auch sagen which box are we in und dann die boxen nummer speichern ohne einen array zu erstellen oder so? und hilft das dann der laufzeit?? (tbd)
+%
+\item nun erst ein Mal optimalen check von periodizität implementieren:\\
+also die zur LOI parallelen diagonalen auf der zu ihnen senkrechten diagonalen von ecke zu ecke durchgehen und jeden punkt prüfen und sollten 3 von ihnen im selben abstand schwarz sein, dann is_periodic = true und wenn dies von LOI (diagonalen_ID = d = 0) startend bis ?zur ecke (oder nur bis zur hälfte? was ergibt hier sinn? definitiv irgendwie dynamisch oder?!)? nicht der fall sein, dann is_periodic = false !?!
+%
+### 00 h : 38 min am 14.09.
+%
+# 15.09.2026
+%
+\item optimale periodizitätsprüfung entwickeln:\\
+%
+### 01 h : 30 min am 15.09.2026
+%
+#
+%
+\item optimale periodizitätsprüfung entwickeln:\\
+%
+\item allocation-optimierung für active_boxs:\\
+
 }
