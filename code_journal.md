@@ -8683,9 +8683,59 @@ also die zur LOI parallelen diagonalen auf der zu ihnen senkrechten diagonalen v
 %
 ### 01 h : 30 min am 15.09.2026
 %
-#
+# 17.09.2026
 %
-\item optimale periodizitätsprüfung entwickeln:\\
+\item optimale periodizitätsprüfung entwickeln (anscheinend des grundkonzepts nach analog etwas, das gemini Poincaré-schnitt nennt):
+\\
+Du schriebst: Wir scannen nicht die Zeile $N/3$. Wir scannen eine Zeile ganz nah an der LOI (z. B. $i = \text{check\_length}$), um $j$ so weit wie möglich nach rechts laufen zu lassen.  
+das bezieht sich immer ncoh auf das untere dreieck, obwohl ich ja das obere dreieck betrachte. also korrekt für meinen code ist demnach i=N-check_length?!
+
+und was ist dieser "max_d = N - check_length - i_fixed " wilde kram? bruahce ich den? verändert der sich für das obere dreieck?
+
+
+ALso nochmal optimales Konzept:
+Ich laufe die Zeile i=N-check_length pixel für pixel durch, wobei check_length = clamp(N\div 10, 20, 100) ist. Dann gehe ich die diagonale in beide richtungen entlang bis zum ende der matrix oder ein weißer punkt auftaucht und prüfe dann ob mindestens check_length erreicht wurde, wenn ich einen schwarzen punkt in der genannten zeile finde. das ist für hybrid_cond1, also LFboth in der periodizitäts abschätzung. in hybrid_cond2, also nur forward, gehe ich die diagonale nurnach rechts oben entlang, wobei ich niciht prüfen muss, ob noch mindestens check_length bis zum rand abstand ist, da dies in der condition implizit ist, dass wir in zeile i=N-check_length im oberen dreieck sind. sollte die diagonale eine schwarze linie enthalten die mindestens die länge check_length hat, berechne ich und speichere die diagonalen ID d=(1,....,N-check_length) in einer von drei variablen d1, d2 oder d3, je nachdem wie viele die bedingungen treffende diagonalen ich schon gefunden habe. 
+
+und an dieser stelle tun sich noch unklarheiten auf:
+sollte ich die suche beenden,w enn ich drei diagonalen entsprechend der bedingungen gefunden habe, besteht dann die gefahr, dass ich vielleciht eine komische gefunden habe, die teil einer anderen schwingung oder so ist und damit die i  nächsten schritt stattfindende äquidistanz-prüfung nicht besteht und zur aussage is_periodic = false fälschlicherweise führt? oder ist das etwas, dass kein system erschaffen würde, welches in einem solchen maß periodisch ist, dass norbert_rand sampling besser klappt, als mein smi_lfb? 
+
+und wie genannt, kommt dann noch die äquidistanz-prüfung der diagonalen IDs als letzte hürde um is_periodic = true oder false zu determinieren und dann läuft einfach entweder norbert_rand oder smi_lfb?!
+\\
+wie ich vorhin beschrieb, habe ich ncoh gedacht, LF both zu nutzen und nicht nur die forward linienverfolgung, aber an sich ist das unfug, da mit i=N-check_length die check_length für alle diagonalen nach oben im oberen dreieck gesichert ist oder? und LFboth würde ja viel mehr schritte erfordern und eine kompliziertere längenbedingung, respektive eine extra abfrage?!
+
+deine neue idee mit dem mindesabstand erscheint mir immer noch suboptimal. wir können doch auch wenn es auch rauschen sein kann trotzallem kleine perioden haben?! die würden wir damit systematisch ausblenden. mir scheint wir müssten tatsächlich, um sicherzugehen, die diagonalen IDs aller schwarzen diagonalen ausreichender länge speichern und die distanzen vergleichen, aber das wäre potentiell ein massives zeitproblem, wenn es viele schwarze diagonale gibt korrekt?
+
+also auch suboptimal!
+
+ist das nicht über die längenkondition lösbar? schau mal nochmal nach wie RPs aussehen können von allen möglichen systemen. denn ich denke, ohne es zu wissen, dass rauschen und so nicht so eine länge erreicht wie echte diagonalen von periodischen systeme, bei welchen norberts rand sampling am besten klappt?! 
+meine Frage also, können wir nicht durch Anpassung der Mindestlänge check_length das Problem lösen und dann doch mit dem ersten Entwurf der festen drei Diagonalen optimale Ergebnisse erzielen? 
+Respektive, falls das so ist, dass rauschen und "falsche" diagonale allgemein nicht an eine bestimmte länge rankommen (das musst du mir gleich ncoh beantworten!), dann findet der algo auch nicht so viele längen-valide diagonale und davon werden nicht allzu viele, wenn überhaupt invalide in der periode, der äquidistanz sein und demnach ist unter anpassung der längenbedingung vielleicht doch möglich alle längen-validen diagonalen zu speichern und dann stück für stück immer mehr in ihrer distanz zu vergleichen und sobald man drei äquidistante gefunden hat abbrechen?! oder eben die einfahc drei und sich komplett auf das längenkriterium zu verlassen?! oder das sliding window, weil eben nur selten invalide diagonale an dem längenkriterium vorbei kommen und wir davon ausgehen können (wieder die frage wie RPs aussehen (annahme bleibt, dass mein algo für ALLE ÜBERHAUPT  MÖGLICHEN RPs funktionieren muss!!)), dass mindestens 99 % der RPs auf die der algo angewandt wird nochmal 3 aufeinanderfolgende periodische diagonalen findet, auch wenn die letzte der ersten drei gefundenen diagonalen, welche das längenkriterium treffen, die invalide ist!? unter letzterer Annahme, scheint mir die letztere option am besten.
+\\
+Hm. ich bin noch unsicher:
+du sagst: kein Ding die bisherigen daten der gesamten RP-forshcung zeigt: kein rauschen wird check_length=clamp(N\div 10, 20, 100) erfüllen. chaos schon, aber da werden sich keine drei linien finden, welche das erfüllen UND dann noch äquidistant sind.
+daraus konkludiere ich ich kann alles serh einfach machen: check_length = clamp(N\div 10, 20, 100) und if long_lines == 0  long_lines+=1 d1=d und so weiter für d2 und d3 und dann if abs((d1-d2) - (d2-d3)) <= 2 is_periodic=true 
+?!
+
+und dann willst du mir aber verkaufen, ich müsse alle diagonalen speichern und alle vergleichen?!
+
+ich sehe das problem, falls deine ersten aussagen absolut sicher und wahr sind, nicht!
+\\
+Okay, noch mal ein Vorschlag, eine andere Idee. Wie wär's denn, unter der Annahme natürlich, dass die Aussagen, die du getroffen hast, alle wahr sind, bezogen auf das Verhalten von den RP-Systemen chaotisch, Rauschen und periodisch mit Rauschen und chaotisch mit Rauschen. Dann gehe ich also davon aus, dass chaotische Systeme auch mit Rauschen es nicht schaffen werden, die drei Linien voll zu machen und schon gar nicht äquidistant. Und Rauschen in periodischen Systemen kann es vielleicht einmal schaffen, die das Lenkkriterium zu erreichen, zu erfüllen. Aber höchstwahrscheinlich nicht super oft. Dann denke ich, wär's doch am optimalsten zu sagen, ich mache erstmal die drei. Da ist es schon sehr unwahrscheinlich, dass chaotisches System oder chaotisches System mit Rauschen da überhaupt reinkommt. Also ich mache drei Diagonalen voll. So, dann prüfe ich einmal Äquidistanz. Sollte da die Äquidistanz noch nicht funktionieren, dann suche ich mir eine weitere, ich behalte diese drei und suche mir noch eine weitere Diagonale. Dann prüfe ich jede mit jedem. Das heißt, es ist eben möglich, dass die eins, die zwei oder die drei eine Störende ist. Es ist aber laut deinen Aussagen, die ich eben als wahr nehme, nicht möglich, und da möchte ich von dir noch mal wissen, ob das nicht möglich ist oder nur sehr unwahrscheinlich. Aber ich gehe jetzt mal mit nicht möglich, dass mehr als eine durch Rauschen gekommen ist. So, und wenn wir uns in einem periodischen System befinden, in einem chaotischen mit Rauschen, wo irgendwie die drei zustande gekommen sind oder sogar vier zustande gekommen sind, mache ich mir keine Sorgen, da wird die Äquidistanz wieder nicht funktionieren. Aber in einem periodischen System mit Rauschen, wo das passiert ist, dass eben eine von den drei Diagonalen nicht Äquidistanz zulässt zwischen den dreien, müsste es ja reichen, eine vierte zu finden. Und dementsprechend haben wir dann drei, die periodisch sein müssen. Und dementsprechend, wenn ich dann die Distanz zwischen allen Vieren untereinander berechne, müsste ich eben finden, dass ich nun drei äquidistante Linien habe oder ich finde wieder keine drei äquidistanten und dann breche ich an der Stelle ab und sage nicht periodisch. Wie ist das?
+\\
+Es sei gesagt, der hauptfokus ist auf laufzeit! 
+Das im Kopf nun aber auch die optimierung für die ergebnisse: wie wäre es noch eine fünfte linie nach dem selben konzept hinzuzunehmen? dann wäre ich sogar für zwei noise linien noch safe vor falschen nicht periodischen systemen !? frage ich mich aber natürlich: das sind dann im schlimmsten fall (5!/(3!*(5-3)!)) (mit immer drei subtraktionen pro dreier (kombination aus drei diags) kombination: abs((dx-dy)-(dy-dz))<=2) diagonalen ID differenzen zu berechnen und vergleichen?! wie vie schlechter/länger ist also die laufzeit? im vergleich vor Allem zu nur 4 diagonale zulassen und wie hoch ist der nutzen?
+\\
+also, das erarbeitete konzept nochmal zur absolut ultimativen optimierung oder bestätigung:
+
+i = N-check_length durchgehen; schwarzer punkt; nach oben rechts folgen; falls check_length schritte alle schwarz sind; d= i-j speichern in if long_lines == x, long_lines += 1, d(x+1) = d; falls drei oder mehr gefunden, if long_lines =3, if abs((d1-d2)-(d2-d3)) <= 2, is_periodic=true, break und sonst läuft die schleife die die spalten in der zeile i=N-check_length durchläuft einfach weiter und alles gleich nur dann unter if long_lines == 3, if abs((d1-d2)-(d2-d3)) <= 2, is_periodic=true, break; if long_lines == 4, if abs((d1-d3) - (d3-d4)), is_periodic = true, break, elseif abs((d1-d2)-(d2-d4)) und so weiter für alle kombinationen und falls keine greift, nochmal für long_lines == 5 und so weiter und dann ist durch und is_periodic entweder immer noch auf false oder auf true gestellt?!
+
+hauptfrage ist: diesen durchlauf für 4 oder 5 diagonalen abs((dx-dy)-(dy-dz)) kann man vielleicht efiizienter in einer schleife (vlt sogar mit @inbounds und @semi oder was es da noch gibt für laufzeit optimierung?!) implementieren, statt zig if bedingungen einzeln zu schreiben??
+\\
+nutze || (ODER) um die if abs(....) alle in eine bedingung zu hauen, welche dann (is_periodic=true, break) gibt
+\\
+### 02 h : 55 min am 17.09.2026
+\\
+ 
 %
 \item allocation-optimierung für active_boxs:\\
 
