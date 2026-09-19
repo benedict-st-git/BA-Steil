@@ -1159,12 +1159,17 @@ end
     
 
 """
-    Sampling 4.1: (norbert for periodic or stratified- + memory + importance sampling with LFboth (optimized) for Drift, Noise and Chaotic) determined by xxxx value (RPLL(RPLineLengths) als Basis - 2 combinations in samplings)
+    Sampling 4.1: hybrid_cond2 (norbert for periodic or stratified- + memory + importance sampling with LFboth (optimized) for Drift, Noise and Chaotic) determined by xxxx value (RPLL(RPLineLengths) als Basis - 2 combinations in samplings)
     -
-    smi_LFboth or norbert rand with condition that diagonals parallel to LOI have on the perpendicular diagonal form corner to corner ?black points (or if black point dann noch checken ob die ganze diagonale schwarz ist, als bedingung für is_periodic?)? in periodic distances, at least ?3? in ?half of the distance from LOI to the corner?
-"""
+    smi_LFboth or norbert rand with condition für is_periodic or not, that in the row in the upper triangle, die als letzte, 
+    nach oben gezählt noch eine diagonale von der länge check_length zulässt, alle spalten bis zut LOI durchgegangen werden von
+     links nach rechts und das heißt alle diagonalen, so dass jeder schwarze punkt nach oben rechts verfolgt wird und falls länge check 
+     length erfüllt wird diese diagonale gespeichert, bis drei gespeichert sind oder eine spalte vor LOI erreicht und geprüft. falls drei gefunden, 
+     dann äquidistanz prüfen (puffer für falsche diagonalen aus rauschen oder und chaos werden durch puffer kompensiert, so dass maximal fünf diagonale geprüft 
+     werden (basierend auf statistischen aussagen von gemini, dass mehr als zwei falsche diagonale in einem periodischen system ausreichend unwahrscheinlich sind))
+    """
 
-function hybrid_cond2(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true, check_periodicity::Bool = true) where {T<:AbstractFloat}
+function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true, check_periodicity::Bool = true) where {T<:AbstractFloat}
     N, dim = size(x)                  # Number of observations and variables
     L_local = zeros(Float64, N)           # Histogram for line lengths - mit typ float64, wegen korrektur in zählung der linien bestimmter länge (1/cnt)
     # L_local_old = zeros(Int, N)       # Histogram for line lengths
@@ -1186,53 +1191,66 @@ function hybrid_cond2(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Float64, Not
     sum_n2_L = 0.0   # sum(n * L[n]) for n >= 2
     sum_L2   = 0.0   # sum(L[n]) for n >= 2
     
-    
-    check_cnt = 0 # black points checked for being part of a line of at least length of 50 (dynamisch besser?!)
-    check_cnt_max = 20 # dynamisch besser !?
+    # check periodicity by checking diagonals for black points (by going through the columns of the 2N÷3 th row <=> 2/3 of the diagonals are checked) and suffieciently equidistant periodic distances in between them and if so, then the line length is checked for sufficent length (dynamically determined conditions (sufficient length, fraction of the matrix/RP that is getting checked )? and absolute conditions (sufficient number of black diagonals, error in equidistance of the potential period in between the black diagonals)?)
     check_length = clamp(N ÷ 10, 20, 100) # dynamisch besser !? -> !!
-    long_lines_goal = 3 # dynamisch besser !?
     is_periodic = false
     long_lines = 0
     d1 = -1 # -1 heißt einfach noch keine reale diagonale zugewiesen; diagonalen-ID ist immer d > 0 , außer LOI d=0
     d2 = -1
     d3 = -1
+    d4 = -1
+    d5 = -1
+    i = N - check_length # oberste zeile, die noch eine diagonale von länge check_length im upper_triangle zulässt
 
-    # check periodicity by checking diagonals for black points (by going through the columns of the 2N÷3 th row <=> 2/3 of the diagonals are checked) and suffieciently equidistant periodic distances in between them and if so, then the line length is checked for sufficent length (dynamically determined conditions (sufficient length, fraction of the matrix/RP that is getting checked )? and absolute conditions (sufficient number of black diagonals, error in equidistance of the potential period in between the black diagonals)?)
-    xxxx
-    
-    if check_periodicity && check_cnt < check_cnt_max
-        check_cnt += 1
-        max_possible_offset = N - max(i_start, j_start) # max abstadn zu rändern
-        if max_possible_offset < check_length
-        
-        else
+    @inbounds for j in 1:(i-1)
+        D2_point_in_i = zero(T)
+        @inbounds for k in 1:dim
+            D2_point_in_i += (x[i,k] - x[j,k])^2
+        end 
+        if D2_point_in_i <= ε2  # point in row i and therefore diagonal d is black => line following (up)
             is_long_line = true
-            # Black Point found, estimate periodicity
-            @inbounds for offset in 1:check_length # starte bie eins um nicht gefundenen schwarzen punkt nochmal zu prüfen (abstandsberechnung kostet viel!) (genaugenommen ist also kriterium, dass linie 101 lang ist, nicht 100) ; min(check_length, (N - i_start)) ist toll because ?? -> ist nicht toll siehe journal
+            @inbounds for offset in 1:check_length
                 D2_line_following = zero(T) # verbesserung: zero(T) ?!
                 @inbounds for k in 1:dim
-                    D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
+                    D2_line_following += (x[i + offset,k] - x[j + offset,k])^2
                 end
-                if D2_line_following > ε2          # Count points belonging to diagonal
+                if D2_line_following > ε2          # line is shorter than check_length
                     is_long_line = false
-                    break                 # Line ends
                 end
             end
-            if is_long_line
-                if d != d1 && d != d2 && d != d3
+            if is_long_line                                   # for loop ist durchgelaufen ohne break => line has at least check_length
+                d = i - j
+                if long_lines == 0
                     long_lines += 1
-                    if long_lines == 1
-                        d1 = d
-                    elseif long_lines == 2
-                        d2 = d
-                    elseif long_lines == 3
-                        d3 = d    
+                    d1 = d
+                elseif long_lines == 1
+                    long_lines += 1
+                    d2 = d
+                elseif long_lines == 2
+                    long_lines += 1
+                    d3 = d
+                    if abs((d1-d2)-(d2-d3)) <=2            # check for equidistance (constant period (with maximum error of two pixels)) in bewtween diagonals 
+                        is_periodic = true
+                        break
+                    end
+                elseif long_lines == 3
+                    long_lines += 1
+                    d4 = d
+                    if abs((d1-d2)-(d2-d4)) <=2 || abs((d1-d3)-(d3-d4)) <=2 || abs((d2-d3)-(d3-d4)) <=2           # check for equidistance (constant period (with maximum error of two pixels)) in bewtween diagonals 
+                        is_periodic = true
+                        break
+                    end
+                elseif long_lines == 4
+                    long_lines += 1
+                    d5 = d
+                    if abs((d1-d2)-(d2-d5)) <=2 || abs((d1-d3)-(d3-d5)) <=2 || abs((d1-d4)-(d4-d5)) <=2 || abs((d2-d3)-(d3-d5)) <=2 || abs((d2-d4)-(d4-d5)) <=2 || abs((d3-d4)-(d4-d5)) <=2          # check for equidistance (constant period (with maximum error of two pixels)) in bewtween diagonals 
+                        is_periodic = true
+                        break
                     end
                 end
             end
-        end    
-    end
-
+        end
+    end 
 
 
     if is_periodic
