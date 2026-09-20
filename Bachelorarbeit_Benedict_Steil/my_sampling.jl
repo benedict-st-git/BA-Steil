@@ -1192,7 +1192,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
     sum_L2   = 0.0   # sum(L[n]) for n >= 2
     
     # check periodicity by checking diagonals for black points (by going through the columns of the 2N÷3 th row <=> 2/3 of the diagonals are checked) and suffieciently equidistant periodic distances in between them and if so, then the line length is checked for sufficent length (dynamically determined conditions (sufficient length, fraction of the matrix/RP that is getting checked )? and absolute conditions (sufficient number of black diagonals, error in equidistance of the potential period in between the black diagonals)?)
-    check_length = clamp(N ÷ 10, 20, 100) # dynamisch besser !? -> !!
+    check_length = clamp(N ÷ 10, 50, 400) # dynamisch besser !? -> !!
     is_periodic = false
     long_lines = 0
     d1 = -1 # -1 heißt einfach noch keine reale diagonale zugewiesen; diagonalen-ID ist immer d > 0 , außer LOI d=0
@@ -1201,8 +1201,15 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
     d4 = -1
     d5 = -1
     i = N - check_length # oberste zeile, die noch eine diagonale von länge check_length im upper_triangle zulässt
+    min_period_length = 3            # drift nahe LOI oder ähnliche einfach schwarze masseneffekte nicht als periodisch anerkennen
+    max_fails = clamp(N÷50, 20, 200) # noise früh erkennen und nicht ewig auf periodizität prüfen
+    failed_lines = 0
+    period_equidistance_error = 2 # maximal erlaubter fehler in der äquidistanz der abstände/perioden zwischen den aktuell geprüften diagonalen
 
     @inbounds for j in 1:(i-1)
+        if failed_lines >= max_fails
+            break            
+        end
         D2_point_in_i = zero(T)
         @inbounds for k in 1:dim
             D2_point_in_i += (x[i,k] - x[j,k])^2
@@ -1216,6 +1223,8 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
                 end
                 if D2_line_following > ε2          # line is shorter than check_length
                     is_long_line = false
+                    failed_lines += 1
+                    break
                 end
             end
             if is_long_line                                   # for loop ist durchgelaufen ohne break => line has at least check_length
@@ -1229,21 +1238,28 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
                 elseif long_lines == 2
                     long_lines += 1
                     d3 = d
-                    if abs((d1-d2)-(d2-d3)) <=2            # check for equidistance (constant period (with maximum error of two pixels)) in bewtween diagonals 
+                    if abs((d1-d2)-(d2-d3)) <= period_equidistance_error && min((d1-d2), (d2-d3)) >= min_period_length         # check for equidistance (constant period (with maximum error of two pixels and minimum period_length)) in bewtween diagonals 
                         is_periodic = true
                         break
                     end
                 elseif long_lines == 3
                     long_lines += 1
                     d4 = d
-                    if abs((d1-d2)-(d2-d4)) <=2 || abs((d1-d3)-(d3-d4)) <=2 || abs((d2-d3)-(d3-d4)) <=2           # check for equidistance (constant period (with maximum error of two pixels)) in bewtween diagonals 
+                    if (abs((d1-d2)-(d2-d4)) <= period_equidistance_error && min(d1-d2, d2-d4) >= min_period_length) || 
+                       (abs((d1-d3)-(d3-d4)) <= period_equidistance_error && min(d1-d3, d3-d4) >= min_period_length) || 
+                       (abs((d2-d3)-(d3-d4)) <= period_equidistance_error && min(d2-d3, d3-d4) >= min_period_length) 
                         is_periodic = true
                         break
                     end
                 elseif long_lines == 4
                     long_lines += 1
                     d5 = d
-                    if abs((d1-d2)-(d2-d5)) <=2 || abs((d1-d3)-(d3-d5)) <=2 || abs((d1-d4)-(d4-d5)) <=2 || abs((d2-d3)-(d3-d5)) <=2 || abs((d2-d4)-(d4-d5)) <=2 || abs((d3-d4)-(d4-d5)) <=2          # check for equidistance (constant period (with maximum error of two pixels)) in bewtween diagonals 
+                    if (abs((d1-d2)-(d2-d5)) <= period_equidistance_error && min((d1-d2), (d2-d5)) >= min_period_length) || 
+                        (abs((d1-d3)-(d3-d5)) <= period_equidistance_error && min((d1-d3), (d3-d5)) >= min_period_length) ||
+                        (abs((d1-d4)-(d4-d5)) <= period_equidistance_error && min((d1-d4), (d4-d5)) >= min_period_length) || 
+                        (abs((d2-d3)-(d3-d5)) <= period_equidistance_error && min((d2-d3), (d3-d5)) >= min_period_length) || 
+                        (abs((d2-d4)-(d4-d5)) <= period_equidistance_error && min((d2-d4), (d4-d5)) >= min_period_length) || 
+                        (abs((d3-d4)-(d4-d5)) <= period_equidistance_error && min((d3-d4), (d4-d5)) >= min_period_length)          # check for equidistance (constant period (with maximum error of two pixels)) in bewtween diagonals 
                         is_periodic = true
                         break
                     end
