@@ -1192,7 +1192,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
     sum_L2   = 0.0   # sum(L[n]) for n >= 2
     
     # check periodicity by checking diagonals for black points (by going through the columns of the 2N÷3 th row <=> 2/3 of the diagonals are checked) and suffieciently equidistant periodic distances in between them and if so, then the line length is checked for sufficent length (dynamically determined conditions (sufficient length, fraction of the matrix/RP that is getting checked )? and absolute conditions (sufficient number of black diagonals, error in equidistance of the potential period in between the black diagonals)?)
-    check_length = clamp(N ÷ 10, 50, 400) # dynamisch besser !? -> !!
+    check_length = clamp(N ÷ 50, 15, 200) # dynamisch besser !? -> !!
     is_periodic = false
     long_lines = 0
     d1 = -1 # -1 heißt einfach noch keine reale diagonale zugewiesen; diagonalen-ID ist immer d > 0 , außer LOI d=0
@@ -1202,7 +1202,7 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
     d5 = -1
     i = N - check_length # oberste zeile, die noch eine diagonale von länge check_length im upper_triangle zulässt
     min_period_length = 3            # drift nahe LOI oder ähnliche einfach schwarze masseneffekte nicht als periodisch anerkennen
-    max_fails = clamp(N÷50, 20, 200) # noise früh erkennen und nicht ewig auf periodizität prüfen
+    max_fails = clamp(N÷20, 50, 300) # noise früh erkennen und nicht ewig auf periodizität prüfen
     failed_lines = 0
     period_equidistance_error = 2 # maximal erlaubter fehler in der äquidistanz der abstände/perioden zwischen den aktuell geprüften diagonalen
 
