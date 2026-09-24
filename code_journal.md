@@ -14832,24 +14832,123 @@ Die Umsetzung (Die Fallback-Strategie):
 Wir machen genau das, was du vorschlägst: Wir starten mit einer strengen Prüfung. Wenn diese an max_fails scheitert, wissen wir: Entweder ist es pures Rauschen, oder es ist ein System mit gestrichelten Linien (wie dein 1D-Oszillator).
 Bevor wir also endgültig aufgeben, schalten wir in einen "Fragment-Modus": Wir halbieren die check_length, setzen den Fail-Zähler zurück und suchen weiter. Um Drift dabei weiterhin auszusperren, fordern wir in diesem Fragment-Modus einfach eine signifikant größere Periode (Drift hat immer kleine Abstände nahe der Hauptdiagonale).
 \\
+# 22.09.2026
+# 23.09.2026
+\\
+### 01 h : 00 min am 22.09.2026 und ca. genau so am 23.
+\\
 # 24.09.2026
 \\
 Was ich tue:\\
 1. verstehen was genau das ding ist mit dem gestrichelten harm osc und dann norbert fragen ob das mein algo können muss.
 2. entscheiden ob ich will, dass der das kann und was für anpassungen ich noch machen muss will und definitiv beides testen, also noch einen "ordentlichen" harm osc miteinbeziehen in die tests und weitere systeme ?jeder? (noise und drift auch? vlt eher weniger extreme systeme mehr realistische dazwischenliegende systeme. norbert hatte noch eines geschickt.) klasse .
 \\
-# 22.09.2026
-# 23.09.2026
+1.: was ist mit dem harm osc:\\
+t_harm_osc = range(0, step=0.1, length=N_points)
+x_harm_osc = reshape(sin.(t_harm_osc), :, 1)
 \\
-### 01 h : 00 min am 22.09.2026 und ca. genau so am 23.
-\\
+Hier ist exakt, was in deinen zwei Zeilen passiert:
+t_harm_osc = range(0, step=0.1, length=N_points)
 
+range(...): Diese Funktion erstellt einen Vektor (eine Liste) von Zahlen, die gleichmäßig verteilt sind.
+0: Das ist der Startwert (die Zeit $t = 0$).
+step=0.1: Das ist die Schrittweite (Abtastrate oder dt). Die Zeit schreitet in 0.1er-Schritten voran (0.0, 0.1, 0.2, 0.3...).
+length=N_points: Definiert die Gesamtlänge des Vektors (z. B. 2000 Punkte).
+
+x_harm_osc = reshape(sin.(t_harm_osc), :, 1)
+
+sin.(...): Berechnet den Sinus für jeden einzelnen Zeitwert in deinem Vektor. 
+Der Punkt . (Broadcasting) ist in Julia extrem wichtig: Er sagt dem Compiler, dass er die Sinus-Funktion nicht auf das Objekt "Vektor" anwenden soll, sondern elementweise auf jede Zahl im Vektor. Das erzeugt deine perfekte, eindimensionale Schwingung.
+reshape(..., :, 1): Die Sinus-Funktion wirft einen flachen 1D-Vektor aus. Deine RP-Funktionen erwarten aber eine Matrix mit der Form (N, Dimensionen). reshape formt den Vektor um. Der Doppelpunkt : sagt "nimm so viele Zeilen, wie Daten da sind", und die 1 sagt "packe alles in exakt 1 Spalte". Das Ergebnis ist eine $N \times 1$ Matrix.
+\\
+Deshalb:
+
+Inkommensurable Abtastung (Phase Drift): Eine Sinuswelle wiederholt sich exakt alle $2\pi$ (ca. 6.283). Deine Schrittweite ist aber 0.1. $2\pi$ lässt sich nicht glatt durch 0.1 teilen (62.83 Punkte pro Periode). Das bedeutet, die Abtastung trifft die Welle in jedem Zyklus an einer minimal anderen Stelle. Im RP führt das dazu, dass die Diagonale (die die Periode abbildet) keine durchgehende Linie ist, sondern gestrichelt wird. Die Linie reißt immer wieder ab – daher dein Baseline-Wert von $L \approx 6.37$.
+
+und
+
+Die Schachbrett-Falle (max_fails = 50): Ein 1D-Sinus erzeugt sogenannte Anti-Diagonalen (Linien, die senkrecht zur Hauptdiagonale stehen). Diese kreuzen deine Suchzeile als winzige schwarze Blöcke (1-2 Pixel lang). Wenn dein Algorithmus die Zeile absucht, trifft er auf dutzende dieser winzigen Blöcke, die sofort den failed_lines-Zähler nach oben treiben. Bei max_fails = 50 bricht das Skript frustriert ab, bevor es überhaupt die Chance hat, die echte Periode bei Distanz $d=63$ zu finden.
+
+## genauer:
+
+Das Phasendrift-Problem (Warum die Linie gestrichelt ist)Stell dir die reine Sinuswelle vor: $y = \sin(t)$. Eine exakte, vollständige Welle ist nach genau $2\pi$ (also $6,283185...$) Sekunden abgeschlossen.Du misst diese Welle mit einer festen Schrittweite von $dt = 0,1$. Deine Messpunkte liegen bei $t = 0,0$, dann $0,1$, dann $0,2$ und so weiter.Was passiert am Ende der ersten Schwingung?Dein 62. Messpunkt liegt bei $t = 6,2$. Das ist minimal vor dem echten Wellenende.Dein 63. Messpunkt liegt bei $t = 6,3$. Das ist minimal nach dem Wellenende.Du triffst den perfekten Nullpunkt ($6,283...$) nie exakt. Da $2\pi$ eine irrationale Zahl ist, verschiebt sich dein Mess-Raster mit jeder neuen Schwingung weiter gegen die echte Welle. Das ist inkommensurable Abtastung (die Messfrequenz und die Systemfrequenz haben keinen gemeinsamen ganzzahligen Teiler).Im Recurrence Plot vergleichen wir die Distanz $\vert{}x_i - x_j\vert{}$ mit dem Schwellenwert $\varepsilon$.Wenn du nun Punkt $i$ (am Anfang der Messung) mit Punkt $j$ (drei Schwingungen später) vergleichst, sind die Systemzustände zwar physikalisch fast identisch, aber durch den Phasendrift rutscht der berechnete Distanzwert periodisch über und unter die harte Grenze von $\varepsilon$. Die resultierende Linie auf dem RP wechselt ständig zwischen schwarz (unter $\varepsilon$) und weiß (über $\varepsilon$). Die Diagonale zerfällt in kurze Striche (daher dein $L \approx 6.37$).2. Die Schachbrett-Falle (Warum max_fails zu früh auslöst)Ein eindimensionaler harmonischer Oszillator hat eine gravierende Besonderheit: Er kreuzt dieselben y-Werte ständig auf zwei verschiedenen Wegen – einmal auf dem Weg nach oben (positive Steigung) und einmal auf dem Weg nach unten (negative Steigung).Im RP entstehen schwarze Punkte nicht nur, wenn zwei Punkte exakt denselben Zustand in derselben Phase haben (was die Diagonalen parallel zur Hauptachse erzeugt), sondern auch, wenn der y-Wert zufällig gleich ist, die Bewegung aber in entgegengesetzte Richtungen verläuft. Diese letzteren Übereinstimmungen erzeugen Anti-Diagonalen – Linien, die senkrecht auf der Hauptdiagonale stehen. Das erzeugt das bekannte Schachbrettmuster.Wenn dein Algorithmus nun eine Zeile horizontal von links nach rechts absucht, passiert Folgendes:Er trifft nach wenigen Pixeln auf eine solche Anti-Diagonale. Ein schwarzer Punkt!Der Algorithmus denkt: "Start einer Periode!" und prüft in Richtung oben-rechts (parallel zur Hauptdiagonale).Da es sich um eine Anti-Diagonale (Richtung oben-links) handelt, ist der Pixel oben-rechts sofort weiß.Die Prüfung bricht ab, failed_lines wird um 1 erhöht.Auf dem Weg zum echten Periodenabstand (bei Index $j \approx 63$) durchkämmt der Algorithmus dutzende dieser Anti-Diagonalen. Er kassiert bei jeder einzelnen einen Fail. Die max_fails = 50 Grenze wird gesprengt, bevor die eigentliche Schwingung überhaupt erreicht und geprüft werden konnte.
+\\
+## Also vorgehen:
+Dein Argument für die Robustheit ist physikalisch völlig richtig. Ein Algorithmus für RQA muss mit inkommensurabler Abtastung umgehen können, da echte Labordaten fast nie exakt die Systemfrequenz treffen.
+
+Wir passen deinen Code durch zwei präzise Erweiterungen an, ohne die Abwehr gegen reines Rauschen zu zerstören:
+
+A. Die Lückentoleranz (Gap Allowance): Wir fordern nicht mehr, dass die check_length zu 100 % aus schwarzen Pixeln besteht. Wir erlauben eine kleine Anzahl an Fehlpixeln (Misses) auf der geprüften Diagonale, um die gestrichelten Linien zu überbrücken.
+B. Erhöhung der Suchgeduld: Wir heben max_fails deutlich an, damit der Algorithmus nicht am Schachbrettmuster verzweifelt, behalten die Grenze aber bei, um reines Rauschen zügig abzuwürgen.
+%
+\item ich implementiere dies möglichst optimal:\\
+Norbert meinte check_length = 2 (was meinst du mit dynamisch/absolut?
+also an sich würde ich die imindestlänge mal auf 2 setzen. bei periodischen systemen kann man es vielelicht auch höher machen, hängt von periodenlänge/ sampling ab.) zunächst mal senke ich check_length und bleibe dynamisch an N mit 
+
+check_length_actual = clamp(N\div 4, 2, N\div 2 ) 
+anhand von augenmaß wie lang die linien max sind in lorenz RP ![lorenz rp](image-1.png)
+und warte seine antwort ab ob ich dies noch dynamisch setzen sollte oder so.
+\\
+max_misses = check_length_actual\div 4
+arbiträr, habe gerade einfach überlegt was gut sein könnte.
+\\
+note: check_length_actual und max misses einmal außerhalb definieren, aber dann mit max_fails erreicht beides anpassen durch check_length_actual = check_kength_actual\div 2 und max_misses = check_length_actual\div 4 
+UND
+dann nochmal laufen lassen und so weiter bis max_breaks_by_max_fails erreicht wurde oder durchgelaufen durch die zeile oder is_periodic=true
+
+max_breaks_by_max_fails = 3 arbiträr
+mit
+max_fails = clamp((i-1)\div 4)
+arbiträr mit gedanken: 
+wenn es wirklich periodisches system ist, dann sollte man auch in dem letzten viertel der diagonalen zur LOI noch 3 ausreichend lange und periodisch zueinander liegende diags finden. UND falls die check_length angepasst werden muss, dann wird man vorher keine oder kaum eine gefunden haben, das heißt max_fails = N*3\div 4 wird auch schon eintreten, wenn noch ca. 1/4 der ursprünglich in i=Zeile=N-?check_length? (eig doch digonal check_length nur benötigt, also i = N - (a=\sqrt(check_length**2 - c**2)) ?? aber wir wollen keine wurzeln, also reicht uns N-check_length??) zu prüfenden diagonalen zu prüfen sind!?!
+\\
+so wird aber max_breaks_by_max_fails überflüssig, außer man passt auch max_fails mit erreichen von max_fails an?!
+vielleicht später noch probieren.
+\\
+Erstmal also (der scheiß mit actual ist redundant):
+
+check_length = max(N\div 4, 2) 
+max_misses = check_length\div 4
+max_fails = max((i-1)\div 4, 50) 50 arbiträr und keine Ahnung ob sinnvoll
+und
+max besser als clamp?
+\\ 
+warte. Anpassung:
+wir wollen ja nicht, dass der prüfer, wenn wir noise haben oder ein chaotisches system alles durchprüft, dass ist die aufgabe von max_fails. so wie ich es jetzt schreiben wollte (if failed_lines >= max_fails dann passe check_length und max_misses an) läuft der prüfer alles durch, weil ich keinen break mehr habe.
+\\
+was also tun?
+Idee:
+if failed_lines >= max_fails && j > oder > als irwas dann entweder break oder check_l und max_mi anpassen ?!
+\\
+konkret:
+um konsistent zu bleiben mit meiner annahme zur bestimmung von dem Zahlenwert für max_fails, denke ich die relevanten szenarien sind:
+
+periodisch und es liegt an der check_length (cl), dann wird keine linie gefunden bis 1/4 der zeile und demnach anpassung von cl und mm bei 
+(failed_lines >= max_fails && j <= ((i-1)\div 4 + (i-1)\div 4\div 10))
+plus 10 Prozent um eine gewisse toleranz zu haben?!??
+
+chaotisch es wird vlt mal eine lange linie produziert, aber kann auch gar nicht passieren, also kann gut sein, dass cl angepasst wird, nach letzterer bedingung.
+
+kacke. ne. das geht so nicht.
+Noise würde ja in jedem fall zu frühem abbruch führen und dann zu anpassung nach letzterem.
+\\
+Also was?
+
+reicht es mit der einführung von max_misses?? 
+
+ist  mir tendenziell zu unsicher. und ich glaube es gibt eine gute variante/bedingung für die anpassung von cl und mm.
+\\
+### ca. 01 h : 30 min am 24.09.2026 
+# 
+\\
+welche? oder vlt gar nicht an max_fails binden oder an was anderes noch? ncoh was außer j und max_fails? oder eines nicht oder was gnaz anderes? (wie viel kosten mich solche prüfungen vonn if bedingungen??)
+
+\\
+auch eine anpassungsbedingung für mindesteperiodenlänge einbauen?? ist diese arbiträre 3 haltbar??
 %
 \item allocation-optimierung für active_boxs:\\
 %
 \item qualität der rqa werte bessern:\\
 
 %
-\item der harm osc:\\
-t_harm_osc = range(0, step=0.1, length=N_points)range(...): Diese Funktion erstellt einen Vektor (eine Liste) von Zahlen, die gleichmäßig verteilt sind.0: Das ist der Startwert (die Zeit $t = 0$).step=0.1: Das ist die Schrittweite (Abtastrate oder dt). Die Zeit schreitet in 0.1er-Schritten voran (0.0, 0.1, 0.2, 0.3...).length=N_points: Definiert die Gesamtlänge des Vektors (z. B. 2000 Punkte).x_harm_osc = reshape(sin.(t_harm_osc), :, 1)sin.(...): Berechnet den Sinus für jeden einzelnen Zeitwert in deinem Vektor. Der Punkt . (Broadcasting) ist in Julia extrem wichtig: Er sagt dem Compiler, dass er die Sinus-Funktion nicht auf das Objekt "Vektor" anwenden soll, sondern elementweise auf jede Zahl im Vektor. Das erzeugt deine perfekte, eindimensionale Schwingung.reshape(..., :, 1): Die Sinus-Funktion wirft einen flachen 1D-Vektor aus. Deine RP-Funktionen erwarten aber eine Matrix mit der Form (N, Dimensionen). reshape formt den Vektor um. Der Doppelpunkt : sagt "nimm so viele Zeilen, wie Daten da sind", und die 1 sagt "packe alles in exakt 1 Spalte". Das Ergebnis ist eine $N \times 1$ Matrix.
 }

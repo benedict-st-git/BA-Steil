@@ -1192,7 +1192,8 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
     sum_L2   = 0.0   # sum(L[n]) for n >= 2
     
     # check periodicity by checking diagonals for black points (by going through the columns of the 2N÷3 th row <=> 2/3 of the diagonals are checked) and suffieciently equidistant periodic distances in between them and if so, then the line length is checked for sufficent length (dynamically determined conditions (sufficient length, fraction of the matrix/RP that is getting checked )? and absolute conditions (sufficient number of black diagonals, error in equidistance of the potential period in between the black diagonals)?)
-    check_length = clamp(N ÷ 50, 15, 200) # dynamisch besser !? -> !!
+    check_length = max(N ÷ 4, 2) # dynamisch besser !? -> !! und max besser als clamp??
+    max_misses = check_length ÷ 4
     is_periodic = false
     long_lines = 0
     d1 = -1 # -1 heißt einfach noch keine reale diagonale zugewiesen; diagonalen-ID ist immer d > 0 , außer LOI d=0
@@ -1201,14 +1202,18 @@ function smi_LFboth_or_norbert_rand_with_LineLength_forward_condition(x::Abstrac
     d4 = -1
     d5 = -1
     i = N - check_length # oberste zeile, die noch eine diagonale von länge check_length im upper_triangle zulässt
+                        # eig doch digonal check_length nur benötigt, also i = N - (a=\sqrt(check_length**2 - c**2)) ?? aber wir wollen keine wurzeln, also reicht uns N-check_length??
     min_period_length = 3            # drift nahe LOI oder ähnliche einfach schwarze masseneffekte nicht als periodisch anerkennen
-    max_fails = clamp(N÷20, 50, 300) # noise früh erkennen und nicht ewig auf periodizität prüfen
+    max_fails = max((i-1)÷ 4, 50) # falls check_length zu lang und noise früh erkennen und nicht ewig auf periodizität prüfen
     failed_lines = 0
     period_equidistance_error = 2 # maximal erlaubter fehler in der äquidistanz der abstände/perioden zwischen den aktuell geprüften diagonalen
 
     @inbounds for j in 1:(i-1)
-        if failed_lines >= max_fails
-            break            
+        if failed_lines >= max_fails && j 
+
+        elseif failed_lines >= max_fails && j
+            check_lenght = 
+            max_misses = check_length ÷ 4            
         end
         D2_point_in_i = zero(T)
         @inbounds for k in 1:dim
