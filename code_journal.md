@@ -14898,8 +14898,8 @@ dann nochmal laufen lassen und so weiter bis max_breaks_by_max_fails erreicht wu
 
 max_breaks_by_max_fails = 3 arbiträr
 mit
-max_fails = clamp((i-1)\div 4)
-arbiträr mit gedanken: 
+max_fails = clamp((i-1) * 3\div 4)
+arbiträr mit gedanken (und für eine anpassung von check_length, wobei: unnötig lang wenn nur noise? und welche zusätzliche bedingung noch um nicht check_length anzupassen und die restliche zeile auch noch zu prüfen, wenn nur noise vorliegt??): 
 wenn es wirklich periodisches system ist, dann sollte man auch in dem letzten viertel der diagonalen zur LOI noch 3 ausreichend lange und periodisch zueinander liegende diags finden. UND falls die check_length angepasst werden muss, dann wird man vorher keine oder kaum eine gefunden haben, das heißt max_fails = N*3\div 4 wird auch schon eintreten, wenn noch ca. 1/4 der ursprünglich in i=Zeile=N-?check_length? (eig doch digonal check_length nur benötigt, also i = N - (a=\sqrt(check_length**2 - c**2)) ?? aber wir wollen keine wurzeln, also reicht uns N-check_length??) zu prüfenden diagonalen zu prüfen sind!?!
 \\
 so wird aber max_breaks_by_max_fails überflüssig, außer man passt auch max_fails mit erreichen von max_fails an?!
@@ -14909,7 +14909,7 @@ Erstmal also (der scheiß mit actual ist redundant):
 
 check_length = max(N\div 4, 2) 
 max_misses = check_length\div 4
-max_fails = max((i-1)\div 4, 50) 50 arbiträr und keine Ahnung ob sinnvoll
+max_fails = max((i-1) * 3\div 4, 50) 50 arbiträr und keine Ahnung ob sinnvoll
 und
 max besser als clamp?
 \\ 
@@ -14939,11 +14939,72 @@ reicht es mit der einführung von max_misses??
 ist  mir tendenziell zu unsicher. und ich glaube es gibt eine gute variante/bedingung für die anpassung von cl und mm.
 \\
 ### ca. 01 h : 30 min am 24.09.2026 
-# 
+# 27.09.2026
 \\
-welche? oder vlt gar nicht an max_fails binden oder an was anderes noch? ncoh was außer j und max_fails? oder eines nicht oder was gnaz anderes? (wie viel kosten mich solche prüfungen vonn if bedingungen??)
+welche? oder vlt gar nicht an max_fails binden oder an was anderes noch? ncoh was außer j und max_fails? oder eines nicht oder was gnaz anderes? (wie viel kosten mich solche prüfungen von if bedingungen??)
+\\
+also nach diskussion mit gemini, wohl gar nciht nötig, wenn check_length, max_misses und max_fails perfekt gewählt und abgestimmt sind (max_fails = clamp(N ÷ 20, 50, 300)    # Schneller Abbruch bei White Noise ist geminis vorschlag)
+\\
+gemini zu check_length:
 
+Das Problem mit N \div 4 für die LinienlängeWenn du im Lorenz-RP nachmisst, wirst du sehen, dass die Diagonalen (die Unstable Periodic Orbits) zwar zahlreich sind, aber durch die chaotische Divergenz immer wieder abreißen. Sie werden selten länger als 50 bis 100 Pixel, bevor ein Versatz entsteht.
+Wenn du check_length = N \div 4 forderst, verlangst du bei $N = 2000$ eine Linie von 500 Pixeln. Das Lorenz-System aus deinem Bild schafft das niemals am Stück.   Die Lösung: Die check_length soll lediglich die dicken Blöcke des Drift-Systems (Random Walk) ignorieren. Da Drift-Blöcke selten größer als 15-20 Pixel in der Diagonale sind, reicht eine check_length von 15 völlig aus, um Drift abzulehnen, während Chaos und Periodizität erkannt werden. clamp(N ÷ 20, 15, 100) ist der optimale Sweetspot.
 \\
+aber ich finde das sieht schon so aus auf dem bild des lorenz rp von google.
+=> beides probieren.
+\\
+also mit cl, mm und mf nun rumprobieren und gucken was klappt
+\\
+(
+  geht es bei max_misses um alle misses pro linien verfolgung oder immer wenn im rahmen eines checks weiße punkte gefunden worden sind wie viele maximal am stück sein dürfen bis abgebrochen wird?? letzteres ergibt wohl mehr sinn, da ersteres ja auch mit N skaliert, bie problemen wie inkommensurabler abtastung?!
+  ---->
+  Du hast gerade einen echten Denkfehler in meinem vorherigen Code-Snippet aufgedeckt. Deine Intuition ist physikalisch und informatisch zu 100 % korrekt: Es muss sich um aufeinanderfolgende weiße Pixel (also eine isolierte Lücke / Gap) handeln, nicht um die absolute Summe der Fehler über die gesamte Linie.
+
+  Wenn wir die absolute Summe nehmen würden (wie ich es fehlerhafterweise im Code davor geschrieben hatte), passiert exakt das, was du diagnostiziert hast: Bei inkommensurabler Abtastung reißt die Linie des harmonischen Oszillators beispielsweise alle 6 Pixel für einen Pixel ab. Wenn unsere check_length 60 ist, haben wir am Ende 10 weiße Pixel aufgesammelt. Die Bedingung max_misses = 2 würde sofort zuschlagen und das periodische System ablehnen, obwohl es strukturell eine völlig legitime, gestrichelte Diagonale ist.
+
+  In der Zeitreihenanalyse und der Methodik der Recurrence Plots nennt man dieses Konzept Gap Tolerance (Lückentoleranz). Man definiert, wie groß ein einzelner Riss in der Trajektorie maximal sein darf, bevor die dynamische Struktur als "verlassen" oder "gebrochen" gilt.
+
+  Ein chaotisches System wie der Lorenz-Attraktor driftet exponentiell ab; wenn die Linie dort reißt, kommt sie nicht nach 1-2 Pixeln wieder exakt auf dieselbe Diagonale zurück, sondern die Lücke wird riesig und der Code bricht ab. Ein 1D-Oszillator hingegen setzt nur ganz kurz einen Pixel aus und macht auf exakt derselben Diagonale weiter.
+)
+\\
+### ca. 01 h : 00 min am 27.09.2026
+# 28.09.2026
+\\
+Implementieren:
+NEU: max_misses = 3 (am stück, anch jeder weißen phase erneuert)
+check_length = max(N\div 4, 2)
+max_fails = clamp(N ÷ 20, 50, 300)
+\\
+%
+## Gespräch mit Norbert
+extrema periodische systeme testen 
+reinperiodisch riesen und kleine frequenze, mehrere frequenze, sehr starke inkommensurable abtastung
+ob heuristische/feste werte überhaupt klappen oder fft oder so zur vorauswahl der parameter besser/nötig
+\\
+einbettung/einbettungsdimension? bei zeitumkehrinvarianten systemen
+time delay 
+um ordentliche systeme für die tests zu schreiben, schreiben zu können, keine antidiagonalen z.B. (sollte mein algo mit antidiagonalen umgehen können? ich denke nicht, da norbert meinte, das sind fehler und keine relevanten strukturen doer artefakte, d.h. diese werden eher beseitigt vor der analyse?!?)
+und dann fft und was es noch so gäbe für vorauswahl der parameterwerte (chek_length, max_misses, max_fails (max_fails vlt kicken??)) oder finden für gesetzmäßigkeiten für jedes aktuelle system/RP benutzen oder aus den tests selber eine feste gesetzmäßigkeit oder feste arbiträre werte für ALLE sys.s/RPs finden, dass kein zusätzliches testen für jedes RP nötig ist.
+%
+### 01 h : 42 min am 28.09.2026
+# 
+# wie schreibe ich die systeme ordentlich??
+\\
+## Was gibt es für probleme die auftreten können und was ist einbettung und was gibt es noch um diese probleme zu lösen und wie funktioniert das?
+\\
+(doi:10.1016/j.physrep.2006.11.001 
+3.2.4 Influence of embedding on the structures in RP (und umliegende kapitel vlt auch als wesentliche quelle zur beantwortung obiger fragen))
+\\
+
+%
+eine oder mehrer versionen schreiben, in denen parameterdaten vorabgeschätzt werden, dann periodizität mit diesen abgeschätzten parameterdaten vorabgeschätzt und daauf basierend norberts rand-sampling oder mein smilfb:
+\\
+
+%
+Welche Systeme also testen/nutzen, um, wie im Gespräch mit Norbert (28.09.2026) beschrieben, parameter werte zu bestimmen?
+\\
+
+%
 auch eine anpassungsbedingung für mindesteperiodenlänge einbauen?? ist diese arbiträre 3 haltbar??
 %
 \item allocation-optimierung für active_boxs:\\
