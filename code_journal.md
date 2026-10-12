@@ -14987,29 +14987,677 @@ um ordentliche systeme für die tests zu schreiben, schreiben zu können, keine 
 und dann fft und was es noch so gäbe für vorauswahl der parameterwerte (chek_length, max_misses, max_fails (max_fails vlt kicken??)) oder finden für gesetzmäßigkeiten für jedes aktuelle system/RP benutzen oder aus den tests selber eine feste gesetzmäßigkeit oder feste arbiträre werte für ALLE sys.s/RPs finden, dass kein zusätzliches testen für jedes RP nötig ist.
 %
 ### 01 h : 42 min am 28.09.2026
+%
+# 06.10.2026
+### 01 h : 00 min am 06.10.2026
+# 07.10.2026
+### 02 h : 30 min am 07.10.2026
+# 08.10.2026
+### -
+# 12.10.2026
+### 02 h : 06 min am 12.10.2026
 # 
+%
+## momentan vorhandene Systeme überprüfen, d.h. RPs ausgeben lassen als schöne abbildung 
+\\
+Wie?\\
+Später verstehen und vlt optimieren.
+Erstmal einfach von Gemini
+Muss mytestbigrp2 durhclaufen? muss die ausgabe ausgegeben werden im REPL? ist das weil include bedeutet, dass der ganze code den ich include durchgeführt wird, wenn ich play oben rechts drücke? also einfach systeme noch extra oben drüber rienschreiben und nicht mytestbigrp2 includen einfach?
+
+\\
+Was ich sehe:\\
+Alles verwendbar denke ich, nur der ahrm osc ist nicht gestrichelt?!? und hat, wie von norbert vorhergesagt, die antidiagonalen.
+
+%
 # wie schreibe ich die systeme ordentlich??
 \\
-## Was gibt es für probleme die auftreten können und was ist einbettung und was gibt es noch um diese probleme zu lösen und wie funktioniert das?
+## Was gibt es für probleme die auftreten können und was ist einbettung und was gibt es um diese probleme zu lösen und wie funktioniert das?
+\\
+Weshalb nicht gestrichelt?\\
+\epsilon ist größer als Phasenverschiebung im rahmen der inkommensurablen (nicht vielfach periodischen, also immer an exakt der selben stelle jede periode) Abtastung
+\\
+Wie entstehen die antidiagonalen?\\
+
 \\
 (doi:10.1016/j.physrep.2006.11.001 
 3.2.4 Influence of embedding on the structures in RP (und umliegende kapitel vlt auch als wesentliche quelle zur beantwortung obiger fragen))
 \\
+Was bedeutet embedding?\\
 
 %
-eine oder mehrer versionen schreiben, in denen parameterdaten vorabgeschätzt werden, dann periodizität mit diesen abgeschätzten parameterdaten vorabgeschätzt und daauf basierend norberts rand-sampling oder mein smilfb:
+## Welche systeme also schreiben? Welche Systeme also testen/nutzen, um, wie im Gespräch mit Norbert (28.09.2026) beschrieben, parameter werte zu bestimmen?
 \\
 
 %
-Welche Systeme also testen/nutzen, um, wie im Gespräch mit Norbert (28.09.2026) beschrieben, parameter werte zu bestimmen?
+## Systeme schreiben und überprüfen, d.h. RPs ausgeben lassen als schöne abbildung (muss eh ins Protokoll)
 \\
 
 %
-auch eine anpassungsbedingung für mindesteperiodenlänge einbauen?? ist diese arbiträre 3 haltbar??
+## wer wie was ist fft und wie kann ich das für parameter für periodizitätsprüfungen verwenden?
+\\
+
 %
-\item allocation-optimierung für active_boxs:\\
+## eine oder mehrer versionen schreiben, in denen parameterdaten vorabgeschätzt werden (mit fft? oder?), dann periodizität mit diesen abgeschätzten parameterdaten vorabgeschätzt und daauf basierend norberts rand-sampling oder mein smilfb:
+\\
+
 %
-\item qualität der rqa werte bessern:\\
+## versionen mit absoluten werten (mit und ohne mf) und welche mit überlegten gesetzmäßigkeiten (mit und ohne mf) und welche mit abgeschätzten (FFT und?) (mit und ohne mf)
+\\
+### Was ist zu tun mit max_fails?\\
+Ich habe dir auch noch ein close up angehangen. kann es sein, dass die dicken schwarzen punkte die funktion der periodizitätsprüfung mit long lines und max misses und max fails über max fails zerschießen? und weshalb sollten die antidiagonalen die periodizitätsprüfung zerschießen?
+ist es eigentlich alles amx_fails schuld?\\
+kurzen test wenn max fails rausgenommen ist:\\
+
+======================================================================
+ SYSTEM: KLASSE 1: CHAOS (ROESSLER SYSTEM)
+======================================================================
+
+=== PERFORMANCE - woRP (BASELINE) ===
+runtime:     359.75 ms
+allocations: 3
+storage:     78.19 KiB
+RR:   0.08277577808439872
+DET:  0.9984392508670275
+L:    23.776464002619335
+ENTR: 3.864856330212997
+
+=== PERFORMANCE - Norberts Sampling ===
+
+  [Benchmark W/O Seed]
+runtime:     10.08 ms
+allocations: 65
+storage:     159.75 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     10.23 ms
+allocations: 121
+storage:     162.36 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 509342.16 ± 11894.15
+  RR:       0.0833939043464435 ± 0.0024252270789036283
+    -> ΔwoRP: 0.0006181262620447853 ± 0.0024252270789036283
+  DET:      0.9984392189144969 ± 0.00019078082401679776
+    -> ΔwoRP: -3.195253051035962e-8 ± 0.00019078082401679776
+  L:        23.77785885781643 ± 0.5217063505009971
+    -> ΔwoRP: 0.001394855197094813 ± 0.5217063505009971
+  ENTR:     3.8374308036258666 ± 0.018911540322153052
+    -> ΔwoRP: -0.027425526587130378 ± 0.018911540322153052
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 519978
+  RR:       0.08339741672718987 (ΔwoRP: 0.0006216386427911474)
+  DET:      0.9984418356456777 (ΔwoRP: 2.5847786502275483e-6)
+  L:        24.274519979242346 (ΔwoRP: 0.4980559766230108)
+  ENTR:     3.8683954386281174 (ΔwoRP: 0.0035391084151203955)
+
+=== PERFORMANCE - Importance Stratified Memory LFBOTH ===
+
+  [Benchmark W/O Seed]
+runtime:     1.39 ms
+allocations: 80
+storage:     98.57 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     1.25 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 22913.3 ± 501.2
+  RR:       0.0872751225411838 ± 0.0017868420824362608
+    -> ΔwoRP: 0.004499344456785084 ± 0.0017868420824362608
+  DET:      0.9985938743582292 ± 0.0008086417410649098
+    -> ΔwoRP: 0.00015462349120176633 ± 0.0008086417410649098
+  L:        24.45877513633844 ± 0.6438698910629175
+    -> ΔwoRP: 0.6823111337191037 ± 0.6438698910629175
+  ENTR:     3.8469146250246533 ± 0.0229681509142065
+    -> ΔwoRP: -0.017941705188343704 ± 0.0229681509142065
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 22426
+  RR:       0.08918219923303311 (ΔwoRP: 0.006406421148634392)
+  DET:      0.9994999999999998 (ΔwoRP: 0.0010607491329723828)
+  L:        23.838945931398303 (ΔwoRP: 0.06248192877896841)
+  ENTR:     3.8320473607612078 (ΔwoRP: -0.03280896945178924)
+
+=== PERFORMANCE - Hybrid (Forward Condition) ===
+
+  [Benchmark W/O Seed]
+runtime:     1.34 ms
+allocations: 76
+storage:     98.36 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     1.44 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 22897.24 ± 499.04
+  RR:       0.08736396103542887 ± 0.0017836574557756224
+    -> ΔwoRP: 0.004588182951030154 ± 0.0017836574557756224
+  DET:      0.998585564516129 ± 0.0008288880595090473
+    -> ΔwoRP: 0.0001463136491015593 ± 0.0008288880595090473
+  L:        24.494464685573522 ± 0.6378329765339866
+    -> ΔwoRP: 0.7180006829541874 ± 0.6378329765339866
+  ENTR:     3.8476380431833332 ± 0.022641306653636662
+    -> ΔwoRP: -0.01721828702966377 ± 0.022641306653636662
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 22426
+  RR:       0.08918219923303311 (ΔwoRP: 0.006406421148634392)
+  DET:      0.9994999999999998 (ΔwoRP: 0.0010607491329723828)
+  L:        23.838945931398303 (ΔwoRP: 0.06248192877896841)
+  ENTR:     3.8320473607612078 (ΔwoRP: -0.03280896945178924)
+
+
+======================================================================
+ SYSTEM: KLASSE 1: CHAOS (LORENZ SYSTEM)
+======================================================================
+
+=== PERFORMANCE - woRP (BASELINE) ===
+runtime:     204.64 ms
+allocations: 3
+storage:     78.19 KiB
+RR:   0.12050202018220797
+DET:  0.9998998789325514
+L:    40.53190731895452
+ENTR: 4.524222130528146
+
+=== PERFORMANCE - Norberts Sampling ===
+
+  [Benchmark W/O Seed]
+runtime:     12.69 ms
+allocations: 121
+storage:     162.37 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     12.79 ms
+allocations: 121
+storage:     162.36 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 591019.89 ± 13656.71
+  RR:       0.12475447413421012 ± 0.004597758825077829
+    -> ΔwoRP: 0.004252453952002147 ± 0.004597758825077829
+  DET:      0.9999007062954327 ± 3.451739127247783e-5
+    -> ΔwoRP: 8.273628813171285e-7 ± 3.451739127247783e-5
+  L:        40.53695163651483 ± 1.2845881857316481
+    -> ΔwoRP: 0.005044317560312095 ± 1.2845881857316481
+  ENTR:     4.4397061673398275 ± 0.027145903495169325
+    -> ΔwoRP: -0.08451596318831811 ± 0.027145903495169325
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 617671
+  RR:       0.11708743063717104 (ΔwoRP: -0.003414589545036928)
+  DET:      0.9998602375960867 (ΔwoRP: -3.964133646472412e-5)
+  L:        39.56460532931121 (ΔwoRP: -0.9673019896433033)
+  ENTR:     4.415985716337583 (ΔwoRP: -0.10823641419056251)
+
+=== PERFORMANCE - Importance Stratified Memory LFBOTH ===
+
+  [Benchmark W/O Seed]
+runtime:     1.77 ms
+allocations: 46
+storage:     120.96 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     1.68 ms
+allocations: 130
+storage:     124.86 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 15308.76 ± 331.68
+  RR:       0.13065589827962115 ± 0.002659354617784819
+    -> ΔwoRP: 0.01015387809741318 ± 0.002659354617784819
+  DET:      0.9999119999999999 ± 0.00020808483678368453
+    -> ΔwoRP: 1.2121067448522815e-5 ± 0.00020808483678368453
+  L:        41.0548575936454 ± 1.1440347910770015
+    -> ΔwoRP: 0.522950274690885 ± 1.1440347910770015
+  ENTR:     4.469810328629765 ± 0.03084105985082682
+    -> ΔwoRP: -0.054411801898380574 ± 0.03084105985082682
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 15610
+  RR:       0.12812299807815503 (ΔwoRP: 0.007620977895947054)
+  DET:      1.0 (ΔwoRP: 0.00010012106744861082)
+  L:        40.74975746867797 (ΔwoRP: 0.2178501497234535)
+  ENTR:     4.478812961390383 (ΔwoRP: -0.04540916913776272)
+
+=== PERFORMANCE - Hybrid (Forward Condition) ===
+
+  [Benchmark W/O Seed]
+runtime:     1.75 ms
+allocations: 54
+storage:     121.42 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     1.75 ms
+allocations: 130
+storage:     124.86 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 15299.01 ± 402.9
+  RR:       0.13071987062939203 ± 0.002759253700009495
+    -> ΔwoRP: 0.010217850447184054 ± 0.002759253700009495
+  DET:      0.9999115000000001 ± 0.0002060587542673285
+    -> ΔwoRP: 1.1621067448674971e-5 ± 0.0002060587542673285
+  L:        41.00386916391108 ± 1.1774010689976018
+    -> ΔwoRP: 0.47196184495656013 ± 1.1774010689976018
+  ENTR:     4.468228910707006 ± 0.031192698681749027
+    -> ΔwoRP: -0.05599321982113992 ± 0.031192698681749027
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 15610
+  RR:       0.12812299807815503 (ΔwoRP: 0.007620977895947054)
+  DET:      1.0 (ΔwoRP: 0.00010012106744861082)
+  L:        40.74975746867797 (ΔwoRP: 0.2178501497234535)
+  ENTR:     4.478812961390383 (ΔwoRP: -0.04540916913776272)
+
+
+======================================================================
+ SYSTEM: KLASSE 2: PERIODIC (HARMONIC OSCILLATOR)
+======================================================================
+
+=== PERFORMANCE - woRP (BASELINE) ===
+runtime:     188.49 ms
+allocations: 3
+storage:     78.19 KiB
+RR:   0.16869916168804264
+DET:  0.9998969369319293
+L:    6.370145543977406
+ENTR: 1.9267486031067216
+
+=== PERFORMANCE - Norberts Sampling ===
+
+  [Benchmark W/O Seed]
+runtime:     1.36 ms
+allocations: 27
+storage:     157.5 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     1.81 ms
+allocations: 121
+storage:     162.36 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 66939.69 ± 2140.16
+  RR:       0.16773400758182067 ± 0.0687096731408178
+    -> ΔwoRP: -0.0009651541062219715 ± 0.0687096731408178
+  DET:      0.9998820740028184 ± 0.00011387271963489743
+    -> ΔwoRP: -1.48629291109037e-5 ± 0.00011387271963489743
+  L:        6.297163288294293 ± 2.573866913701522
+    -> ΔwoRP: -0.07298225568311345 ± 2.573866913701522
+  ENTR:     1.917057095368502 ± 0.029968478291804025
+    -> ΔwoRP: -0.009691507738219585 ± 0.029968478291804025
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 68745
+  RR:       0.310202283300289 (ΔwoRP: 0.14150312161224635)
+  DET:      0.9999164508313142 (ΔwoRP: 1.9513899384926425e-5)
+  L:        11.97997997997998 (ΔwoRP: 5.609834436002574)
+  ENTR:     1.9878967476966698 (ΔwoRP: 0.06114814458994822)
+
+=== PERFORMANCE - Importance Stratified Memory LFBOTH ===
+
+  [Benchmark W/O Seed]
+runtime:     13.13 ms
+allocations: 110
+storage:     100.77 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     15.04 ms
+allocations: 130
+storage:     124.87 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 11065.21 ± 391.26
+  RR:       0.18084472534909163 ± 0.005952259607012364
+    -> ΔwoRP: 0.012145563661048991 ± 0.005952259607012364
+  DET:      0.9998934444444443 ± 0.00022914419612586436
+    -> ΔwoRP: -3.4924874849906473e-6 ± 0.00022914419612586436
+  L:        6.948327265906324 ± 0.3511472768124299
+    -> ΔwoRP: 0.5781817219289183 ± 0.3511472768124299
+  ENTR:     2.028482505191696 ± 0.05741193595385647
+    -> ΔwoRP: 0.10173390208497435 ± 0.05741193595385647
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 11070
+  RR:       0.18066847335140018 (ΔwoRP: 0.011969311663357546)
+  DET:      1.0 (ΔwoRP: 0.00010306306807073007)
+  L:        6.683379267519554 (ΔwoRP: 0.3132337235421474)
+  ENTR:     1.9564003708872644 (ΔwoRP: 0.029651767780542793)
+
+=== PERFORMANCE - Hybrid (Forward Condition) ===
+
+  [Benchmark W/O Seed]
+runtime:     17.15 ms
+allocations: 108
+storage:     99.9 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     11.97 ms
+allocations: 130
+storage:     124.86 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 11062.2 ± 357.87
+  RR:       0.1809786839531213 ± 0.005660253162541445
+    -> ΔwoRP: 0.012279522265078668 ± 0.005660253162541445
+  DET:      0.9998919999999998 ± 0.00023321747445332323
+    -> ΔwoRP: -4.9369319294889635e-6 ± 0.00023321747445332323
+  L:        6.936530141420478 ± 0.34128247686521024
+    -> ΔwoRP: 0.5663845974430721 ± 0.34128247686521024
+  ENTR:     2.026621627450063 ± 0.05679672785619791
+    -> ΔwoRP: 0.09987302434334144 ± 0.05679672785619791
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 11070
+  RR:       0.18066847335140018 (ΔwoRP: 0.011969311663357546)
+  DET:      1.0 (ΔwoRP: 0.00010306306807073007)
+  L:        6.683379267519554 (ΔwoRP: 0.3132337235421474)
+  ENTR:     1.9564003708872644 (ΔwoRP: 0.029651767780542793)
+
+
+======================================================================
+ SYSTEM: KLASSE 3: HOMOGENOUS RP (WHITE NOISE)
+======================================================================
+
+=== PERFORMANCE - woRP (BASELINE) ===
+runtime:     484.49 ms
+allocations: 3
+storage:     78.19 KiB
+RR:   0.31000792896992163
+DET:  0.6957785520242857
+L:    2.8168341761073212
+ENTR: 1.24791486522226
+
+=== PERFORMANCE - Norberts Sampling ===
+
+  [Benchmark W/O Seed]
+runtime:     0.36 ms
+allocations: 121
+storage:     162.37 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     0.3 ms
+allocations: 121
+storage:     162.36 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 8073.7 ± 154.06
+  RR:       0.3115286880596622 ± 0.005398969529075222
+    -> ΔwoRP: 0.0015207590897405865 ± 0.005398969529075222
+  DET:      0.6957834501964211 ± 0.009569168885157776
+    -> ΔwoRP: 4.898172135336942e-6 ± 0.009569168885157776
+  L:        2.8145037527459325 ± 0.04059722072720354
+    -> ΔwoRP: -0.002330423361388778 ± 0.04059722072720354
+  ENTR:     1.244747579295894 ± 0.02116693083072167
+    -> ΔwoRP: -0.003167285926366059 ± 0.02116693083072167
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 7741
+  RR:       0.32202491386164855 (ΔwoRP: 0.012016984891726923)
+  DET:      0.693278463648834 (ΔwoRP: -0.002500088375451681)
+  L:        2.865079365079365 (ΔwoRP: 0.048245188972043884)
+  ENTR:     1.2522346512278124 (ΔwoRP: 0.004319786005552384)
+
+=== PERFORMANCE - Importance Stratified Memory LFBOTH ===
+
+  [Benchmark W/O Seed]
+runtime:     0.34 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     0.31 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 4456.34 ± 79.65
+  RR:       0.4488498107873375 ± 0.007600175970540593
+    -> ΔwoRP: 0.13884188181741586 ± 0.007600175970540593
+  DET:      0.6951394999999998 ± 0.010152653156496393
+    -> ΔwoRP: -0.0006390520242859354 ± 0.010152653156496393
+  L:        2.817266935162406 ± 0.026616064118608302
+    -> ΔwoRP: 0.0004327590550845528 ± 0.026616064118608302
+  ENTR:     1.2459339805156977 ± 0.018299482688952047
+    -> ΔwoRP: -0.0019808847065623247 ± 0.018299482688952047
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 4433
+  RR:       0.45116174148432164 (ΔwoRP: 0.1411538125144)
+  DET:      0.6789999999999997 (ΔwoRP: -0.01677855202428602)
+  L:        2.812130717365976 (ΔwoRP: -0.004703458741345035)
+  ENTR:     1.2170702796361048 (ΔwoRP: -0.030844585586155215)
+
+=== PERFORMANCE - Hybrid (Forward Condition) ===
+
+  [Benchmark W/O Seed]
+runtime:     0.58 ms
+allocations: 68
+storage:     97.99 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     0.52 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 4460.03 ± 74.82
+  RR:       0.44855292669911756 ± 0.00751151737076129
+    -> ΔwoRP: 0.13854499772919593 ± 0.00751151737076129
+  DET:      0.6956254999999997 ± 0.010381800495652556
+    -> ΔwoRP: -0.00015305202428606002 ± 0.010381800495652556
+  L:        2.815389033188365 ± 0.027803783531939682
+    -> ΔwoRP: -0.0014451429189561438 ± 0.027803783531939682
+  ENTR:     1.246296914754289 ± 0.01885973923946871
+    -> ΔwoRP: -0.0016179504679709744 ± 0.01885973923946871
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 4433
+  RR:       0.45116174148432164 (ΔwoRP: 0.1411538125144)
+  DET:      0.6789999999999997 (ΔwoRP: -0.01677855202428602)
+  L:        2.812130717365976 (ΔwoRP: -0.004703458741345035)
+  ENTR:     1.2170702796361048 (ΔwoRP: -0.030844585586155215)
+
+
+======================================================================
+ SYSTEM: KLASSE 4: DRIFT (RANDOM WALK)
+======================================================================
+
+=== PERFORMANCE - woRP (BASELINE) ===
+runtime:     146.86 ms
+allocations: 3
+storage:     78.19 KiB
+RR:   0.21585802044425884
+DET:  0.9889694676180966
+L:    34.58999692843248
+ENTR: 3.5367546661084104
+
+=== PERFORMANCE - Norberts Sampling ===
+
+  [Benchmark W/O Seed]
+runtime:     3.83 ms
+allocations: 121
+storage:     162.36 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     3.89 ms
+allocations: 121
+storage:     162.36 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 184750.32 ± 4151.29
+  RR:       0.23750387412373802 ± 0.014032822763574388
+    -> ΔwoRP: 0.021645853679479188 ± 0.014032822763574388
+  DET:      0.9889231382088134 ± 0.0008130915237409352
+    -> ΔwoRP: -4.632940928317453e-5 ± 0.0008130915237409352
+  L:        34.557584329111606 ± 2.020380874666959
+    -> ΔwoRP: -0.03241259932087104 ± 2.020380874666959
+  ENTR:     3.4520816050442455 ± 0.046654897461765536
+    -> ΔwoRP: -0.08467306106416483 ± 0.046654897461765536
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 186476
+  RR:       0.22912194478966594 (ΔwoRP: 0.013263924345407102)
+  DET:      0.9887612746810216 (ΔwoRP: -0.0002081929370749691)
+  L:        33.12044046799725 (ΔwoRP: -1.4695564604352285)
+  ENTR:     3.4562719601227028 (ΔwoRP: -0.08048270598570761)
+
+=== PERFORMANCE - Importance Stratified Memory LFBOTH ===
+
+  [Benchmark W/O Seed]
+runtime:     1.35 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     1.64 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 7550.87 ± 154.99
+  RR:       0.26488855950550944 ± 0.0049136474687408865
+    -> ΔwoRP: 0.0490305390612506 ± 0.0049136474687408865
+  DET:      0.9891141724137927 ± 0.0022760148495907313
+    -> ΔwoRP: 0.00014470479569617112 ± 0.0022760148495907313
+  L:        35.268254004599676 ± 1.7548407395828625
+    -> ΔwoRP: 0.6782570761671991 ± 1.7548407395828625
+  ENTR:     3.5151216951736535 ± 0.1372675820040854
+    -> ΔwoRP: -0.021632970934756912 ± 0.1372675820040854
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 7382
+  RR:       0.270929287455974 (ΔwoRP: 0.055071267011715164)
+  DET:      0.9875 (ΔwoRP: -0.0014694676180965205)
+  L:        38.527089283106655 (ΔwoRP: 3.937092354674178)
+  ENTR:     3.44695434022687 (ΔwoRP: -0.0898003258815403)
+
+=== PERFORMANCE - Hybrid (Forward Condition) ===
+
+  [Benchmark W/O Seed]
+runtime:     1.76 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Benchmark WITH Seed (Random.seed!(42))]
+runtime:     2.04 ms
+allocations: 128
+storage:     100.75 KiB
+
+  [Statistisch W/O Seed (1000 Läufe)]
+  countAll: 7545.84 ± 140.99
+  RR:       0.2651393264926174 ± 0.004962216612057964
+    -> ΔwoRP: 0.049281306048358564 ± 0.004962216612057964
+  DET:      0.9892704999999998 ± 0.002311909313678778
+    -> ΔwoRP: 0.00030103238190326564 ± 0.002311909313678778
+  L:        35.17754627142579 ± 1.7995065291057275
+    -> ΔwoRP: 0.587549342993313 ± 1.7995065291057275
+  ENTR:     3.521066713784619 ± 0.1422079284754078
+    -> ΔwoRP: -0.015687952323791166 ± 0.1422079284754078
+
+  [Exakt WITH Seed (Random.seed!(42))]
+  countAll: 7382
+  RR:       0.270929287455974 (ΔwoRP: 0.055071267011715164)
+  DET:      0.9875 (ΔwoRP: -0.0014694676180965205)
+  L:        38.527089283106655 (ΔwoRP: 3.937092354674178)
+  ENTR:     3.44695434022687 (ΔwoRP: -0.0898003258815403)
+\\
+also nur max_fails ist es auch nicht, aber es zerschießt tatsächlihc noise ein bisschen.
+es scheint einfach immer noch nichts als periodisch zu sehen.\\
+also max_fails wäre stark, aber wie kann das für alle systeme sicher sein??
+\\
+an gemini:\\
+habe ich jetzt entworfen ohne max fails. und auch das schaltet bei dem harmonischen oszillator mit antidiagonalen nciht norberts_rand sampling ein. Ich sehe keinen logischen grund, weshalb das so sein sollte:
+
+In Zeile i wird jeder schwarze punkt nach oben rechts verfolgt und das muss doch bedeuten es werden ausreichend periodische diags gefunden! AU?ER: min period length (unwahrscheinlich, so wie der RP aussieht) oder äquidistanzerror machen uns einen strich durhc die rehcnung?!?\\
+Antwort:\\
+es liegen dicke bänder vor, deshalb werden die 5 long diags einfach direkt nebeneinander voll gemacht und keine drei dieser diags haben mindestperioden-abstand und damit abbruch und is_periodic=false
+\\
+also:
+es muss ein mindestabstand zwischen diags bestehen. logischerweise die mindestperiodenlänge?? ne, kann ja sein, dass eine diagonale eine falsche ist, die zwischen zweien mit richtiger, aber minimaler periode liegt. Außerdem entstehen dicke bänder/linien doch, weil \epsilon so groß ist, dass das system sich immer noch in kleiner epsilon befindet auch noch einen oder emhrere schritte nach und vor der eigentlich exakt wiederkehrenden phase in der jeweiligen periode? falls ja, dann wäre, sobald zwei pixel oder ein pixel (also weniger als mindestperiodenlänge 3) zwischen den nächsten schwarzen punkten in zeile i sind, die wahrscheinlichkeit, dass wir noch eine linie des schwarzen bands finden wie groß? ausreichend klein?
+\\
+ANtwort gemini:
+Deine physikalische Intuition bezüglich der Entstehung der dicken Bänder ist absolut korrekt und erfasst exakt das geometrische Problem im Phasenraum.
+
+In der Literatur der nichtlinearen Dynamik wird dieser Effekt als *Sojourn Time* (Verweilzeit) beschrieben. Wenn dein System eine endliche Phasenraumgeschwindigkeit $\vert{}\vert{}\vec{v}\vert{}\vert{}$ hat und du einen festen Radius $\epsilon$ definierst, verbleibt die Trajektorie für eine gewisse Zeit $\Delta t \approx 2\epsilon / \vert{}\vert{}\vec{v}\vert{}\vert{}$ in der $\epsilon$-Umgebung des Referenzpunktes. Im Recurrence Plot führt exakt dies dazu, dass nicht nur der Punkt $(i, j)$ schwarz wird, sondern auch $(i, j+1)$, $(i, j+2)$ etc. – das Resultat sind dicke Linien oder quadratische Blöcke.
+
+Zu deiner konkreten Überlegung, wie man algorithmisch damit umgeht und wie wahrscheinlich es ist, eine neue Periode zu finden, wenn nur 1 oder 2 Pixel Abstand dazwischen liegen:
+
+### Die Wahrscheinlichkeit von eng benachbarten Diagonalen
+
+Wenn du in Zeile $i$ einem schwarzen Pixel folgst, dann 1 oder 2 weiße Pixel auftreten und unmittelbar danach wieder ein schwarzer Pixel auftaucht, geht die Wahrscheinlichkeit, dass dies der Beginn einer *neuen, echten Systemperiode* ist, faktisch gegen **Null**.
+
+Die wissenschaftliche Faktenlage hierzu ist eindeutig:
+
+1. **Abtasttheorem (Nyquist-Shannon) und Dynamik:** Damit eine Schwingung oder Periode in einem dynamischen System physikalisch sinnvoll abgetastet ist, benötigt sie wesentlich mehr als 2 oder 3 Datenpunkte pro Zyklus. Wäre der Abstand zwischen zwei echten, unabhängigen physikalischen Perioden nur $\Delta t = 2$ Zeitschritte, wäre deine Abtastrate katastrophal zu niedrig, um die Dynamik (die glatte Trajektorie) aufzulösen (Aliasing-Effekt).
+2. **Ursprung der Lücken (False Diagonals):** Wenn in einem dicken schwarzen Band plötzlich 1 oder 2 weiße Pixel auftauchen, handelt es sich empirisch fast immer um Artefakte:
+* **Noise (Rauschen):** Dynamisches oder Messrauschen "kickt" den Zustandsvektor für einen Bruchteil eines Zeitschritts knapp über die $\epsilon$-Grenze hinaus, bevor er sofort wieder hineinfällt. Das Band franst aus oder bekommt Löcher.
+* **Diskretisierung:** Bei ungünstiger Phasenlage zwischen Abtastzeitpunkt und den Grenzen des $\epsilon$-Balls kann die Distanz knapp über $\epsilon$ springen, obwohl die kontinuierliche Trajektorie noch im "Schlauch" ist.
+
+
+
+Ein naher, neu auftauchender schwarzer Pixel gehört also deterministisch gesehen zum *selben* Rekurrenz-Ereignis (dem selben Durchgang durch die $\epsilon$-Umgebung) und darf auf keinen Fall als neue, unabhängige Diagonale für eine Periodizitätsprüfung gezählt werden.
+
+### Der etablierte Standard: Das Theiler-Fenster
+
+Die Literatur hat dieses Problem der "Autokorrelation auf kurzen Zeitskalen" bereits in den 1980er Jahren adressiert. Der Physiker James Theiler führte 1986 das nach ihm benannte *Theiler-Fenster* ($W$) ein, um genau solche Fehlinterpretationen bei der Phasenraumrekonstruktion zu verhindern.
+
+Das Theiler-Fenster besagt: Wenn ein Zustand $x_i$ auftritt, müssen alle Nachbarn $x_j$ ignoriert werden, für die $\vert{}i - j\vert{} \le W$ gilt. Auf deine Zeilenprüfung umgemünzt bedeutet das Prinzip:
+Zwei schwarze Pixel in der gleichen Zeile $i$ gehören nur dann zu *unterschiedlichen* Diagonalen (und damit zu unterschiedlichen potenziellen Perioden), wenn zwischen ihnen mindestens $W$ ununterbrochene weiße Pixel liegen.
+
+### Konsequenz für deinen Algorithmus
+
+Dein Gedankengang ist zielführend. Eine starre `min_period_length = 3` reicht bei dicken Bändern nicht aus, da du immer noch Pixel innerhalb desselben dicken Bandes als separate Diagonalen misst, wenn dieses Band 5 Pixel dick ist.
+
+Die algorithmisch robusteste und in der Literatur übliche Methode ist die Definition einer **Band-Toleranz** (angelehnt an das Theiler-Fenster):
+
+* Wenn du in Zeile $i$ von links nach rechts gehst und auf einen schwarzen Pixel triffst, bist du *in* einer Linie/einem Band.
+* Gehst du weiter nach rechts, ignorierst du alle Zustandswechsel (weiß oder schwarz), solange du nicht eine durchgehende Lücke von mindestens $W$ weißen Pixeln am Stück siehst.
+* Erst wenn eine Lücke $> W$ weißen Pixeln durchschritten wurde, wird der Zähler "scharf" geschaltet. Der *nächste* schwarze Pixel wird dann als Beginn einer wirklich neuen Diagonale ($d_2$) registriert.
+
+Für RQA-Analysen dynamischer Systeme wird $W$ oft empirisch auf die Zeit gesetzt, in der die Auto-Mutual-Information (AMI) des Systems abfällt, oder schlicht auf einen Wert, der knapp größer ist als die zu erwartende Sojourn Time (die Dicke der Linien). Wenn deine dicken Linien beim Oszillator bis zu 5 Pixel dick sind, müsste eine Lückengröße (deine neue `min_period_length`) mindestens $> 5$ betragen, besser z.B. 10 oder 15, da physikalische Perioden in gut abgetasteten Systemen ohnehin Abstände in der Größenordnung von dutzenden bis hunderten Pixeln aufweisen.
+\\
+also:
+mindestperiode ist unfug! einfach gar nciht die quatschig nahen diags prüfen, aber immer erst nach einem sinnvollen abstand/anzahl pixel (W) zwischen schwarzen punkten in zeile i wieder anfangen zu prüfen (absolut oder dynamisch? theiler window?)
+\\
+Theiler window dachte ich ist nur für den bereich um die LOI? 
+du schreibst zur definition soll man die AMI (Auto mututal information) des systems nutzen. die habe ich aber doch nicht so einfach oder?! also wie bestimme ich W für beliebige systeme am besten?
+Sollten es W weiße pixel am stück sein oder einfach W pixel abstand bis zum wieder scharf schalten der prüfung auf schwarze punkte und entsprechend der linienverfolgung?
+\\
+gmeini:
+
+%
+## testis testis testis und ausbessern/optimieren bis hin zu finalen versionen der vorabschätzenden parameter zur periodizitätsprüfung und der entweder absoluten werte und der überlegten gesetzmäßigkeiten 
+\\
+### jeden parameter einzeln durchtesten
+\\
+
+%
+## noch lfb periodizitätsprüfung versionen machen? falls nein, weshalb?
+\\
+
+%
+## alles final optimieren an allen stellen (u.A. siehe fragen unten)
+\\
+smilfb optimieren für drift, noise und chaos -extrema und alles dazwischen:\\
+
+\\
+norbert-rand optimieren für periodisch:\\
+
+\\
+auch eine anpassungsbedingung für mindesteperiodenlänge einbauen?? ist diese arbiträre 3 haltbar??\\
+
+\\
+allocation-optimierung für active_boxs:\\
+
+\\
+qualität der rqa werte bessern:\\
 
 %
 }
