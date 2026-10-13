@@ -14996,6 +14996,8 @@ und dann fft und was es noch so gäbe für vorauswahl der parameterwerte (chek_l
 ### -
 # 12.10.2026
 ### 02 h : 06 min am 12.10.2026
+# 13.10.2026
+### 02 h : 52 min am 13.10.2026
 # 
 %
 ## momentan vorhandene Systeme überprüfen, d.h. RPs ausgeben lassen als schöne abbildung 
@@ -15028,6 +15030,34 @@ Was bedeutet embedding?\\
 %
 ## Welche systeme also schreiben? Welche Systeme also testen/nutzen, um, wie im Gespräch mit Norbert (28.09.2026) beschrieben, parameter werte zu bestimmen?
 \\
+### chaotische sys.s (Klasse 1):
+\\
+
+\\
+### periodische sys.s (Klasse 2):
+\\
+KLASSE 2: BE (bad embedding (antidiagonalen)) PERIODIC (HARMONIC OSCILLATOR) 
+(phasenverschiebung (phase delay (PD)) kleiner als \epsilon => keine gestrichelten linien)
+
+KLASSE 2: PERIODIC (HARMONIC OSCILLATOR) 
+(phasenverschiebung kleiner als \epsilon => keine gestrichelten linien)
+
+KLASSE 2: PERIODIC (HARMONIC OSCILLATOR) 
+(phasenverschiebung größer als \epsilon => gestrichelten linien)
+
+KLASSE 2: PERIODIC (HARMONIC OSCILLATOR) 
+
+\\
+### 
+\\
+
+\\
+###
+\\
+
+\\
+###
+\\
 
 %
 ## Systeme schreiben und überprüfen, d.h. RPs ausgeben lassen als schöne abbildung (muss eh ins Protokoll)
@@ -15044,7 +15074,9 @@ Was bedeutet embedding?\\
 %
 ## versionen mit absoluten werten (mit und ohne mf) und welche mit überlegten gesetzmäßigkeiten (mit und ohne mf) und welche mit abgeschätzten (FFT und?) (mit und ohne mf)
 \\
-### Was ist zu tun mit max_fails?\\
+### Etablieren und evaluieren der vorhandenen und aller noch in frage kommenden Parameter (welche benutze ich am besten und dann die versionen schreiben und optimieren):
+\\
+#### Was ist zu tun mit max_fails?\\
 Ich habe dir auch noch ein close up angehangen. kann es sein, dass die dicken schwarzen punkte die funktion der periodizitätsprüfung mit long lines und max misses und max fails über max fails zerschießen? und weshalb sollten die antidiagonalen die periodizitätsprüfung zerschießen?
 ist es eigentlich alles amx_fails schuld?\\
 kurzen test wenn max fails rausgenommen ist:\\
@@ -15631,7 +15663,39 @@ du schreibst zur definition soll man die AMI (Auto mututal information) des syst
 Sollten es W weiße pixel am stück sein oder einfach W pixel abstand bis zum wieder scharf schalten der prüfung auf schwarze punkte und entsprechend der linienverfolgung?
 \\
 gmeini:
+### Theiler window:
+Du hast in Bezug auf die klassische Definition völlig recht. Das Theiler-Fenster wird in der Standardliteratur der Recurrence Quantification Analysis formal als Ausschlusszone rund um die Hauptdiagonale (Line of Identity, LOI) definiert. Es dient dort primär dazu, die triviale zeitliche Autokorrelation unmittelbar aufeinanderfolgender Zustände aus Metriken wie dem Determinismus herauszurechnen.Ich habe das fundamentale Prinzip des Theiler-Fensters hier auf deine spezifische Zeilen-Abtastung projiziert. Das physikalische Problem der zeitlichen Autokorrelation (die Sojourn Time oder Verweilzeit in der $\epsilon$-Umgebung) tritt nämlich exakt analog an jedem dicken schwarzen Band auf, nicht nur an der LOI. Wenn sich das System in einer dicken Struktur abseits der LOI befindet, sind benachbarte Pixel in der Zeile durch genau denselben Trägheits-Effekt korreliert und keine unabhängigen Systemzustände.
 
+### Abhängigkeit/bestimmung von W:
+#### Problem:
+Deine Kritik an der Nutzung der Auto-Mutual-Information (AMI) für diesen Zweck ist analytisch absolut präzise. Die AMI für ein beliebiges Signal zu berechnen, ist algorithmisch aufwendig ($O(N \log N)$ aufwärts) und erfordert Histogrammbildungen. Für einen Sampling-Algorithmus, dessen ganzer Daseinszweck darin besteht, massive Geschwindigkeitsvorteile gegenüber der Berechnung des vollen RP zu erzielen, wäre ein vorgeschalteter AMI-Algorithmus ein konzeptioneller Fehler. Die Literatur verwendet AMI für die präzise Offline-Phasenraumrekonstruktion, taugt aber nicht für pfeilschnelle Heuristiken.
+#### Lösung:
+Die Lösung muss also rein algorithmisch und numerisch nahezu kostenlos sein.Wie man W (die minimale Periodenlänge) heuristisch bestimmt:Da du $N$ (die Länge der Zeitreihe) kennst, ist eine dynamische Skalierung mit harten physikalischen Grenzen optimal. In realen, sinnvoll abgetasteten Systemen (Nyquist-Shannon-Abtasttheorem) ist eine echte Periode fast nie kürzer als 10 bis 20 Zeitschritte. Ein solider, rechentechnisch kostenloser Wert für $W$ in deinem Code wäre:W = clamp(N ÷ 50, 15, 100)Weiße Pixel am Stück vs. fester Index-Abstand:Einen Zähler für ununterbrochene weiße Pixel mitlaufen zu lassen, ist die physikalisch strengste Methode, erfordert aber in der Schleife ständige Abfragen und Resets.Es gibt einen viel eleganteren und völlig kostenlosen Weg, der direkt deine Variable d (die aktuelle Diagonale) nutzt. Da d = i - j ist, rücken benachbarte Pixel im selben dicken Band auf den Diagonalen d, d-1, d-2 etc. direkt nebeneinander. Du zwingst den Algorithmus einfach dazu, eine neu gefundene Diagonale d nur dann als gültige long_line (also als d2, d3 etc.) zu akzeptieren, wenn ihr Abstand zur zuletzt gespeicherten Diagonale mindestens $W$ beträgt.Das sieht im Code-Ablauf dann exakt so aus:Finde erste Linie -> Speichere d1 = d.Gehe in der Zeile weiter. Finde nächste Linie bei neuem d.Prüfe: if abs(d1 - d) >= W.Ist das Band einfach nur dick, ist abs(d1 - d) z.B. 1 oder 2. Die Prüfung schlägt fehl, die Linie wird schlicht ignoriert, die Suche in der Zeile geht verlustfrei weiter.Springst du über die Lücke zur nächsten echten Periode, ist abs(d1 - d) z.B. 63. Die Prüfung ist erfolgreich, du speicherst d2 = d.Damit umgehst du das Zählen von weißen Pixeln komplett, verbrauchst deine 5 Diagonalen-Speicherplätze (d1 bis d5) nicht mehr innerhalb eines einzigen dicken Bandes und erfasst echte periodische Abstände iterativ mit einer simplen Subtraktion.
+\\
+also:
+theiler fenster ist quasi genau das, dass ein bestimmter bereich immer ignoriert wird, weil man davon asugeht, dass dort die autokorrelation (soujorn time/verweilzeit) alles unbrauchbra gemacht hat für das gegebene epsilon, bzw. das aktuelle system?!? also wie auch immer man es nennt:
+immer einen mindestabstand im ausgehen davon, dass sinnvolle abtastung nach Nyquist-Shannon-Abtasttheorem (??) vorliegt über dependency: W = clamp(N ÷ 50, 15, 100) bestimmen, welcher ignoriert wird nach einem gefundenen schwarzen punkt oder einer gefundenen schwarzen long line?? Gemini sagt nocht die punkte ignorieren, aber mit if abs(d1 - d) >= W wird halt nur gespiechert? meins ergibt doch mehr sinn?\\
+also:
+ist es nicht besser einfach zu sagen current = 1, dann for j in current:i-1 und wenn digaonale gespeichert worden ist, dann current = j+W ?!\\
+affirmation von gemini, ABER:
+Dein Gedanke ist algorithmisch völlig logisch, scheitert aber an der Art und Weise, wie der Compiler in Julia (und den meisten anderen modernen Programmiersprachen wie C++ oder Python) for-Schleifen unter der Haube verarbeitet.
+
+Wenn du for j in current:(i-1) schreibst, wertet Julia das Iterable current:(i-1) (ein UnitRange-Objekt) exakt ein einziges Mal ab, bevor die Schleife überhaupt startet. Der Iterator merkt sich intern seinen Zustand. Wenn du nun die Variable current innerhalb der Schleife veränderst, ändert das absolut nichts an dem bereits generierten UnitRange-Objekt, über das die Schleife iteriert. Die Schleife springt nicht zurück und aktualisiert ihre Laufgrenzen nicht dynamisch.
+
+Wenn du die Laufvariable tatsächlich direkt manipulieren und dynamisch springen willst, ist das klassische Mittel der Wahl in der Informatik die while-Schleife:
+Eine while-Schleife wertet die Bedingung bei jedem Durchlauf neu aus. In Performance-kritischem Code in Julia sind while-Schleifen und for-Schleifen nach der Kompilierung in LLVM-Code nahezu identisch schnell, solange die Typstabilität gewahrt ist. Mein Vorschlag mit skip_to_j war ein Workaround, um bei der vertrauten for-Schleife zu bleiben, aber die while-Schleife ist die direktere Übersetzung deines Gedankens.
+\\
+aber while ist doch langsamer als for oder?\\
+Dass while-Schleifen pauschal langsamer seien als for-Schleifen, ist ein hartnäckiger Mythos, der aus interpretierten Sprachen wie Python oder R stammt. Dort ist for schneller, weil die Iteration an eine hochoptimierte C-Schleife im Hintergrund übergeben wird, während while bei jedem Durchlauf den Interpreter aufruft.
+
+In einer JIT-kompilierten Sprache wie Julia (die über LLVM direkt in Maschinencode übersetzt wird) existiert dieser Unterschied nicht. Solange die Typstabilität gewahrt bleibt (was bei reinen Integer-Zählern der Fall ist), kompilieren eine saubere while-Schleife und eine for-Schleife auf CPU-Ebene zu nahezu identischen Assembly-Instruktionen (klassische Compare- und Branch/Jump-Befehle).
+\\
+und dann konkret: was ist schenller for mit if j < current.... oder while?\\
+Für deinen konkreten Fall ist die Antwort eindeutig: Die while-Schleife mit dem direkten Sprung (current += W) ist hier signifikant schneller.Hier ist die physikalisch-numerische Begründung, warum das so ist:Szenario 1: Die for-Schleife mit if j < skip_to_j continueNimm an, dein System gibt ein $W = 50$ vor. Wenn du nun eine Diagonale findest und skip_to_j = j + 50 setzt, iteriert die for-Schleife trotzdem deterministisch weiter. Sie muss in den folgenden 49 Durchläufen jedes Mal:Den Index j um 1 erhöhen.Prüfen, ob das Ende der Schleife (i-1) erreicht ist.Die Bedingung j < skip_to_j evaluieren (Compare-Befehl).Den Branch (den bedingten Sprung) für das continue ausführen.Du verbrennst also fast 200 CPU-Operationen völlig nutzlos, nur um den Bereich zu durchqueren, von dem du bereits weißt, dass er leer ist.Szenario 2: Die while-Schleife mit current += WWenn du bei der Auswertung current += 50 setzt, passiert auf CPU-Ebene exakt Folgendes:Eine einzige Addition (current = current + 50).Eine einzige Prüfung der Schleifenbedingung (current <= i-1).Du überspringst den verbotenen Bereich mathematisch in $O(1)$ Zeit (konstante Zeit, ein Rechenschritt). Die CPU iteriert nicht durch das Band, sie teleportiert den Zähler einfach ans Ende des Bandes.Fazit zur Implementierung:Setze hier zwingend die while-Schleife ein. Je dicker deine schwarzen Bänder sind (je größer $W$ ist), desto eklatanter wird der Performance-Vorteil der while-Schleife, da sie leere Räume in Nullzeit überbrückt, während die abgewandelte for-Schleife jeden leeren Raum mühsam abschreiten muss.
+\\
+#### while implementiert\\
+test für neu implementiertes W in hybrid1_dep_womf:
+C:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Testis\W_abstand_nach_gefundener_diag_in_zeile_i.md
 %
 ## testis testis testis und ausbessern/optimieren bis hin zu finalen versionen der vorabschätzenden parameter zur periodizitätsprüfung und der entweder absoluten werte und der überlegten gesetzmäßigkeiten 
 \\
@@ -15639,7 +15703,7 @@ gmeini:
 \\
 
 %
-## noch lfb periodizitätsprüfung versionen machen? falls nein, weshalb?
+## noch lfb (hybrid2) periodizitätsprüfung versionen machen? falls nein, weshalb?
 \\
 
 %

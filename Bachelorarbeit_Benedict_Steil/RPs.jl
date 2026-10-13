@@ -1,8 +1,7 @@
 using Plots
-#include("my_test_big_RP_2.jl") # die systeme
-# wird der code komplett ausgeführt, wenn ich include... stehen habe und oben rechts play drücke? anscheinend!
+using DifferentialEquations
+using Random
 
-# nur systeme:
 # ====================================================================
 # Datengenerierung & Ausführung
 # ====================================================================
@@ -20,9 +19,7 @@ end
 prob_r = ODEProblem(roessler!, [-6.2668, -1.3413, 0.0166], (0.0, (N_points + 100 - 1) * 0.2)) 
 sol_r = solve(prob_r, Tsit5(), saveat=0.2) 
 x_c1 = transpose(hcat(sol_r.u...))[101:end, :]               
-
 ε_c1 = 0.1 * (maximum(x_c1) - minimum(x_c1))   
-M_c1 = Int(round(0.2 * N_points))
 
 
 # ---------------------------------------------------------
@@ -30,8 +27,7 @@ M_c1 = Int(round(0.2 * N_points))
 # ---------------------------------------------------------
 function generate_lorenz(N; dt=0.01, σ=10.0, ρ=28.0, β=8/3)
     x = zeros(Float64, N, 3)
-    x[1, :] .= [1.0, 1.0, 1.0] # Initiale Startwerte
-    
+    x[1, :] .= [1.0, 1.0, 1.0]
     @inbounds for i in 1:(N-1)
         dx = σ * (x[i,2] - x[i,1])
         dy = x[i,1] * (ρ - x[i,3]) - x[i,2]
@@ -45,50 +41,67 @@ function generate_lorenz(N; dt=0.01, σ=10.0, ρ=28.0, β=8/3)
 end
 
 x_lorenz = generate_lorenz(N_points)          
-
 ε_lorenz = 0.1 * (maximum(x_lorenz) - minimum(x_lorenz))   
-M_lorenz = Int(round(0.2 * N_points))
 
 
 # ---------------------------------------------------------
-# KLASSE 2: PERIODIC (HARMONIC OSCILLATOR)
+# KLASSE 2.1: BE (bad embedding (antidiagonalen)) PERIODIC (HARMONIC OSCILLATOR) 
 # ---------------------------------------------------------
-t_harm_osc = range(0, step=0.1, length=N_points)
-x_harm_osc = reshape(sin.(t_harm_osc), :, 1)
+t_harm_osc_1 = range(0, step=0.1, length=N_points)
+x_harm_osc_1 = reshape(sin.(t_harm_osc_1), :, 1)
+ε_harm_osc_1 = 0.1 * (maximum(x_harm_osc_1) - minimum(x_harm_osc_1))   
 
-ε_harm_osc = 0.1 * (maximum(x_harm_osc) - minimum(x_harm_osc))   
-M_harm_osc = Int(round(0.2 * N_points))
+
+# ---------------------------------------------------------
+# KLASSE 2.2: PERIODIC (HARMONIC OSCILLATOR) - Dicke Linien
+# ---------------------------------------------------------
+t_harm_osc_2 = range(0, step=0.1, length=N_points)
+x_harm_osc_2 = hcat(sin.(t_harm_osc_2), cos.(t_harm_osc_2))
+ε_harm_osc_2 = 0.1 * (maximum(x_harm_osc_2) - minimum(x_harm_osc_2))   
+
+
+# ---------------------------------------------------------
+# KLASSE 2.3: PERIODIC (HARMONIC OSCILLATOR) - Gestrichelte Linien
+# ---------------------------------------------------------
+t_harm_osc_3 = range(0, step=0.61, length=N_points)
+x_harm_osc_3 = hcat(sin.(t_harm_osc_3), cos.(t_harm_osc_3))
+ε_harm_osc_3 = 0.1 * (maximum(x_harm_osc_3) - minimum(x_harm_osc_3))   
+
+
+# ---------------------------------------------------------
+# KLASSE 2.4: PERIODIC (HARMONIC OSCILLATOR) - Perfekte Resonanz
+# ---------------------------------------------------------
+t_harm_osc_4 = range(0, step=0.1*pi, length=N_points)
+x_harm_osc_4 = hcat(sin.(t_harm_osc_4), cos.(t_harm_osc_4))
+ε_harm_osc_4 = 0.1 * (maximum(x_harm_osc_4) - minimum(x_harm_osc_4))   
 
 
 # ---------------------------------------------------------
 # KLASSE 3: HOMOGENOUS RP (WHITE NOISE)
 # ---------------------------------------------------------
-Random.seed!(123) # Reproduzierbares Rauschen
+Random.seed!(123) 
 x_noise = reshape(randn(N_points), :, 1)
-
 ε_noise = 0.1 * (maximum(x_noise) - minimum(x_noise))   
-M_noise = Int(round(0.2 * N_points))
 
 
 # ---------------------------------------------------------
 # KLASSE 4: DRIFT (RANDOM WALK)
 # ---------------------------------------------------------
-Random.seed!(123) # Reproduzierbarer Random Walk
+Random.seed!(123) 
 x_drift = reshape(cumsum(randn(N_points)), :, 1)
-
 ε_drift = 0.1 * (maximum(x_drift) - minimum(x_drift))   
-M_drift = Int(round(0.2 * N_points))
 
 
-
-
-# RPs plotten und speichern:
-function save_recurrence_plot(system_name::String, x::AbstractMatrix, ε::Float64; N_sys::Int)
+# ====================================================================
+# RPs plotten und speichern
+# ====================================================================
+function save_recurrence_plot(system_name::String, x::AbstractMatrix, ε::Float64; max_plot_size::Int=1000)
     
-    # OPTIMIERUNG 1: falses() generiert eine hochperformante BitMatrix statt Int64
+    # Verhindere OOM-Crash bei zu großen Matrizen fürs Plotten
+    N_sys = min(size(x, 1), max_plot_size)
+    
+    # falses() generiert eine hochperformante BitMatrix
     R = falses(N_sys, N_sys) 
-    
-    # OPTIMIERUNG 2: Quadrierten Schwellenwert berechnen, um sqrt() im Loop zu vermeiden
     ε2 = ε^2 
     
     @inbounds @fastmath for i in 1:N_sys
@@ -98,7 +111,6 @@ function save_recurrence_plot(system_name::String, x::AbstractMatrix, ε::Float6
                 D2 += (x[i, k] - x[j, k])^2
             end
             
-            # Vergleich ohne teure sqrt()-Funktion
             if D2 <= ε2   
                 R[i, j] = true
                 R[j, i] = true 
@@ -106,8 +118,9 @@ function save_recurrence_plot(system_name::String, x::AbstractMatrix, ε::Float6
         end
     end
 
-    safe_name = replace(system_name, r"[^a-zA-Z0-9_]" => "_") # ???????
-    filename = "RP_$(safe_name).png"                          # ?????
+    # Säubere den Namen von Sonderzeichen, um OS-Fehler beim Speichern zu vermeiden
+    safe_name = replace(system_name, r"[^a-zA-Z0-9_]" => "_") 
+    filename = "RP_$(safe_name).png"                          
 
     p = heatmap(
         1:N_sys, 1:N_sys, R,
@@ -125,16 +138,24 @@ function save_recurrence_plot(system_name::String, x::AbstractMatrix, ε::Float6
     )
 
     savefig(p, filename)
-    println("-> Recurrence Plot erfolgreich gespeichert unter: $filename")
+    println("-> Recurrence Plot gespeichert unter: $filename (Größe: $N_sys x $N_sys)")
 end
 
-# Damit der Plotter nicht nochmal die 1000 Benchmarks durchführt, rufen wir hier nur die Generatoren auf:
+
+# ====================================================================
+# Plot-Aufrufe
+# ====================================================================
 println("\nStarte Plotting-Prozess...")
 
-save_recurrence_plot("KLASSE 1: CHAOS (ROESSLER SYSTEM)", x_c1, ε_c1, N_points)
-save_recurrence_plot("KLASSE 1: CHAOS (LORENZ SYSTEM)", x_lorenz, ε_lorenz, N_points)
-save_recurrence_plot("KLASSE 2: PERIODIC (HARMONIC OSCILLATOR)", x_harm_osc, ε_harm_osc, N_points)
-save_recurrence_plot("KLASSE 3: HOMOGENOUS RP (WHITE NOISE)", x_noise, ε_noise, N_points)
-save_recurrence_plot("KLASSE 4: DRIFT (RANDOM WALK)", x_drift, ε_drift, N_points)
+save_recurrence_plot("KLASSE 1 - CHAOS (ROESSLER)", x_c1, ε_c1)
+save_recurrence_plot("KLASSE 1 - CHAOS (LORENZ)", x_lorenz, ε_lorenz)
 
-println("Alle Plots wurden generiert!")
+save_recurrence_plot("KLASSE 2.1 - PERIODIC BE (1D)", x_harm_osc_1, ε_harm_osc_1)
+save_recurrence_plot("KLASSE 2.2 - PERIODIC PD (Dicke Linien)", x_harm_osc_2, ε_harm_osc_2)
+save_recurrence_plot("KLASSE 2.3 - PERIODIC PD (Gestrichelte Linien)", x_harm_osc_3, ε_harm_osc_3)
+save_recurrence_plot("KLASSE 2.4 - PERIODIC (Resonanz)", x_harm_osc_4, ε_harm_osc_4)
+
+save_recurrence_plot("KLASSE 3 - WHITE NOISE", x_noise, ε_noise)
+save_recurrence_plot("KLASSE 4 - DRIFT (RANDOM WALK)", x_drift, ε_drift)
+
+println("\nAlle Plots wurden generiert!")

@@ -1562,29 +1562,25 @@ function hybrid1_dep_womf(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Float64,
     max_misses = 3 # max weiße punkte am stück bei linienverfolgung, bevor abgebrochen wird. absolut ist am, besten?
     is_periodic = false
     long_lines = 0
-    d1 = -1 # -1 heißt einfach noch keine reale diagonale zugewiesen; diagonalen-ID ist immer d > 0 , außer LOI d=0
-    d2 = -1
-    d3 = -1
-    d4 = -1
-    d5 = -1
+    d1 = d2 = d3 = d4 = d5 = -1 # -1 heißt einfach noch keine reale diagonale zugewiesen; diagonalen-ID ist immer d > 0 , außer LOI d=0
     i = N - check_length # oberste zeile, die noch eine diagonale von länge check_length im upper_triangle zulässt
                         # eig doch digonal check_length nur benötigt, also i = N - (a=\sqrt(check_length**2 - c**2)) ?? aber wir wollen keine wurzeln, also reicht uns N-check_length??
-    min_period_length = 3            # drift nahe LOI oder ähnliche einfach schwarze masseneffekte nicht als periodisch anerkennen
-    failed_lines = 0    # wegen ?zähler? 0 und nicht zero(T) ?!?
+    W = clamp(N ÷ 50, 15, 100)           # drift nahe LOI oder ähnliche einfach schwarze masseneffekte (theiler window, soujorn/verweil zeit) nicht berücksichtigen
     period_equidistance_error = 2 # maximal erlaubter fehler in der äquidistanz der abstände/perioden zwischen den aktuell geprüften diagonalen
+    current = 1 # aktuelle spalte in zeile i
 
-    @inbounds for j in 1:(i-1)
+    @inbounds while current <= (i-1)
         misses = 0 # wegen ?zähler? 0 und nicht zero(T) ?!?
         D2_point_in_i = zero(T)
         @inbounds for k in 1:dim
-            D2_point_in_i += (x[i,k] - x[j,k])^2
+            D2_point_in_i += (x[i,k] - x[current,k])^2
         end 
         if D2_point_in_i <= ε2  # point in row i and therefore diagonal d is black => line following (up)
             is_long_line = true
             @inbounds for offset in 1:check_length
                 D2_line_following = zero(T) # verbesserung: zero(T) ?!
                 @inbounds for k in 1:dim
-                    D2_line_following += (x[i + offset,k] - x[j + offset,k])^2
+                    D2_line_following += (x[i + offset,k] - x[current + offset,k])^2
                 end
                 if D2_line_following > ε2          # line is shorter than check_length
                     misses += 1
@@ -1597,43 +1593,54 @@ function hybrid1_dep_womf(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Float64,
                 end
             end
             if is_long_line                                   # for loop ist durchgelaufen ohne break => line has at least check_length
-                d = i - j
+                d = i - current
                 if long_lines == 0
                     long_lines += 1
                     d1 = d
+                    current += W
                 elseif long_lines == 1
                     long_lines += 1
                     d2 = d
+                    current += W
                 elseif long_lines == 2
                     long_lines += 1
                     d3 = d
-                    if abs((d1-d2)-(d2-d3)) <= period_equidistance_error && min((d1-d2), (d2-d3)) >= min_period_length         # check for equidistance (constant period (with maximum error of two pixels and minimum period_length)) in bewtween diagonals 
+                    current += W
+                    if abs((d1-d2)-(d2-d3)) <= period_equidistance_error         # check for equidistance (constant period (with maximum error of two pixels and minimum period_length)) in bewtween diagonals 
                         is_periodic = true
                         break
                     end
                 elseif long_lines == 3
                     long_lines += 1
                     d4 = d
-                    if (abs((d1-d2)-(d2-d4)) <= period_equidistance_error && min(d1-d2, d2-d4) >= min_period_length) || 
-                       (abs((d1-d3)-(d3-d4)) <= period_equidistance_error && min(d1-d3, d3-d4) >= min_period_length) || 
-                       (abs((d2-d3)-(d3-d4)) <= period_equidistance_error && min(d2-d3, d3-d4) >= min_period_length) 
+                    current += W
+                    if (abs((d1-d2)-(d2-d4)) <= period_equidistance_error )|| 
+                       (abs((d1-d3)-(d3-d4)) <= period_equidistance_error )|| 
+                       (abs((d2-d3)-(d3-d4)) <= period_equidistance_error )
                         is_periodic = true
                         break
                     end
                 elseif long_lines == 4
                     long_lines += 1
                     d5 = d
-                    if (abs((d1-d2)-(d2-d5)) <= period_equidistance_error && min((d1-d2), (d2-d5)) >= min_period_length) || 
-                        (abs((d1-d3)-(d3-d5)) <= period_equidistance_error && min((d1-d3), (d3-d5)) >= min_period_length) ||
-                        (abs((d1-d4)-(d4-d5)) <= period_equidistance_error && min((d1-d4), (d4-d5)) >= min_period_length) || 
-                        (abs((d2-d3)-(d3-d5)) <= period_equidistance_error && min((d2-d3), (d3-d5)) >= min_period_length) || 
-                        (abs((d2-d4)-(d4-d5)) <= period_equidistance_error && min((d2-d4), (d4-d5)) >= min_period_length) || 
-                        (abs((d3-d4)-(d4-d5)) <= period_equidistance_error && min((d3-d4), (d4-d5)) >= min_period_length)          # check for equidistance (constant period (with maximum error of two pixels)) in bewtween diagonals 
+                    current += W
+                    if (abs((d1-d2)-(d2-d5)) <= period_equidistance_error )|| 
+                        (abs((d1-d3)-(d3-d5)) <= period_equidistance_error) ||
+                        (abs((d1-d4)-(d4-d5)) <= period_equidistance_error) || 
+                        (abs((d2-d3)-(d3-d5)) <= period_equidistance_error) || 
+                        (abs((d2-d4)-(d4-d5)) <= period_equidistance_error) || 
+                        (abs((d3-d4)-(d4-d5)) <= period_equidistance_error)          # check for equidistance (constant period (with maximum error of two pixels)) in bewtween diagonals 
                         is_periodic = true
                         break
+                    else
+                        break # max 5 diagonals checked, if not periodic, then break
                     end
                 end
+            else
+                current += 1 # shcwarzer punkt, aber keine lange diagonale
             end
+        else
+            current += 1 # weißer pixel
         end
     end 
 

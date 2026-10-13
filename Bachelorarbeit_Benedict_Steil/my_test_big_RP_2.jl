@@ -270,18 +270,46 @@ evaluate_system("KLASSE 1: CHAOS (LORENZ SYSTEM)", x_lorenz, ε_lorenz, M_lorenz
 
 
 # ---------------------------------------------------------
-# KLASSE 2: PERIODIC (HARMONIC OSCILLATOR)
+# KLASSE 2: BE (bad embedding (antidiagonalen)) PERIODIC (HARMONIC OSCILLATOR) 
+# (phasenverschiebung (phase delay (PD)) kleiner als \epsilon => keine gestrichelten linien)
 # ---------------------------------------------------------
-t_harm_osc = range(0, step=0.1, length=N_points)
-x_harm_osc = reshape(sin.(t_harm_osc), :, 1)
-
-ε_harm_osc = 0.1 * (maximum(x_harm_osc) - minimum(x_harm_osc))   
+t_harm_osc_1 = range(0, step=0.1, length=N_points)
+x_harm_osc_1 = reshape(sin.(t_harm_osc_1), :, 1)
+ε_harm_osc_1 = 0.1 * (maximum(x_harm_osc_1) - minimum(x_harm_osc_1)) 
 M_harm_osc = Int(round(0.2 * N_points))
 
+evaluate_system("KLASSE 2: BE+PD PERIODIC (HARMONIC OSCILLATOR)", x_harm_osc_1, ε_harm_osc_1, M_harm_osc)
+
+# ---------------------------------------------------------
+# KLASSE 2: PERIODIC (HARMONIC OSCILLATOR) 
+# (phasenverschiebung kleiner als \epsilon => keine gestrichelten linien)
+# ---------------------------------------------------------
+t_harm_osc_2 = range(0, step=0.1, length=N_points)
+x_harm_osc_2 = hcat(sin.(t_harm_osc_2), cos.(t_harm_osc_2))
+ε_harm_osc_2 = 0.1 * (maximum(x_harm_osc_2) - minimum(x_harm_osc_2))   
+
+evaluate_system("KLASSE 2: PD PERIODIC (HARMONIC OSCILLATOR)", x_harm_osc_2, ε_harm_osc_2, M_harm_osc)
+
+# ---------------------------------------------------------
+# KLASSE 2: PERIODIC (HARMONIC OSCILLATOR) 
+# (phasenverschiebung größer als \epsilon => gestrichelten linien)
+# ---------------------------------------------------------
+t_harm_osc_3 = range(0, step=0.61, length=N_points)
+x_harm_osc_3 = hcat(sin.(t_harm_osc_3), cos.(t_harm_osc_3))
+ε_harm_osc_3 = 0.1 * (maximum(x_harm_osc_3) - minimum(x_harm_osc_3))   
+
+evaluate_system("KLASSE 2: PD(recognizable) PERIODIC (HARMONIC OSCILLATOR)", x_harm_osc_3, ε_harm_osc_3, M_harm_osc)
 
 
+# ---------------------------------------------------------
+# KLASSE 2: PERIODIC (HARMONIC OSCILLATOR) 
+# 
+# ---------------------------------------------------------
+t_harm_osc_4 = range(0, step=0.1*pi, length=N_points)
+x_harm_osc_4 = hcat(sin.(t_harm_osc_4), cos.(t_harm_osc_4))
+ε_harm_osc_4 = 0.1 * (maximum(x_harm_osc_4) - minimum(x_harm_osc_4))   
 
-evaluate_system("KLASSE 2: PERIODIC (HARMONIC OSCILLATOR)", x_harm_osc, ε_harm_osc, M_harm_osc)
+evaluate_system("KLASSE 2: PERIODIC (HARMONIC OSCILLATOR)", x_harm_osc_4, ε_harm_osc_4, M_harm_osc)
 
 
 # ---------------------------------------------------------
