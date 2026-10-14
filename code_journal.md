@@ -14998,6 +14998,8 @@ und dann fft und was es noch so gäbe für vorauswahl der parameterwerte (chek_l
 ### 02 h : 06 min am 12.10.2026
 # 13.10.2026
 ### 02 h : 52 min am 13.10.2026
+# 14.10.2026
+### 03 h : 00 min am 14.10.2026
 # 
 %
 ## momentan vorhandene Systeme überprüfen, d.h. RPs ausgeben lassen als schöne abbildung 
@@ -15019,7 +15021,75 @@ Alles verwendbar denke ich, nur der ahrm osc ist nicht gestrichelt?!? und hat, w
 Weshalb nicht gestrichelt?\\
 \epsilon ist größer als Phasenverschiebung im rahmen der inkommensurablen (nicht vielfach periodischen, also immer an exakt der selben stelle jede periode) Abtastung
 \\
+wie sorge ich für gestrichelte linien durch die abtastung an immer anderer stelle einer jeden periode?\\ 
+gemini:
+Das Geheimnis der lückenlosen Linien (Frage 2)Wenn du einen perfekten harmonischen Oszillator im 2D-Phasenraum als $\vec{x}(t) = [\sin(t), \cos(t)]$ definierst, berechnet sich der quadrierte euklidische Abstand $D^2$ zwischen zwei beliebigen Zeitpunkten $t_i$ und $t_j$ wie folgt:$D^2(i, j) = (\sin(t_i) - \sin(t_j))^2 + (\cos(t_i) - \cos(t_j))^2$Löst man die binomischen Formeln auf und nutzt den trigonometrischen Pythagoras ($\sin^2 + \cos^2 = 1$), vereinfacht sich das exakt zu:$D^2(i, j) = 2 - 2\cos(t_i - t_j)$Da in deinem Code der zeitliche Abstand auf einer bestimmten Diagonale $d$ immer konstant ist ($t_i - t_j = d \cdot \text{step}$), bedeutet das: Der Abstand $D^2$ hängt ausschließlich von der Diagonale $d$ ab, nicht von der Position auf der Diagonale.Jeder einzelne Pixel auf einer spezifischen Diagonale hat exakt denselben Wert. Erfüllt dieser Wert die Schwellenwertbedingung $D^2 \le \epsilon^2$, ist die Diagonale von ganz unten links bis ganz oben rechts zu 100 % massiv schwarz. Ist er größer, ist sie zu 100 % weiß. Es ist mathematisch unmöglich, mit diesem perfekten 2D-System durch eine Änderung der Schrittweite gestrichelte Linien (Lücken) zu erzeugen.   Wie du echte Lücken für deine Tests provozierst:Um gestrichelte Linien zu erhalten, muss der Abstand auf der Diagonale fluktuieren. Das erreichst du durch folgende Methoden:1D-Embedding (Klasse 2.1): Hier fehlt der Kosinus. Dadurch oszilliert der Abstand entlang der Diagonale und reißt Lücken (was du bereits implementiert hast).Rauschen hinzufügen (Klasse 2.3): Simuliere Messrauschen, das die Trajektorie minimal aus dem $\epsilon$-Schlauch schubst. Ändere deinen Code einfach zu:x_harm_osc_3 = hcat(sin.(t_harm_osc_3), cos.(t_harm_osc_3)) .+ 0.05 .* randn(N_points, 2)Quasiperiodizität: Addiere zwei Schwingungen mit inkommensurablen Frequenzen, sodass die Zyklen nie perfekt deckungsgleich sind:x_harm_osc_3 = hcat(sin.(t) .+ sin.(sqrt(2).*t), cos.(t) .+ cos.(sqrt(2).*t))\\
+raff ich nicht.
+ich denke ich muss einfach immer an so weit voneinander entfernten stellen in jeder periode einen punkt abtasten/erzeugen, dass keiner näher als \epsilon zu finden ist:
+eben range(0, step=0.61, length=N_points) mit einer schrittweite, welche dividiert von 2\pi einen rest so groß, dass mindestens alle paar perioden, wenn nicht sogar jede periode, der abstand von der aktuellen phase in der aktuellen periode zu der oder den phase/n, an welcher eine oder mehrere vorhergegangene oder nachfolgende gemessen/erzeugt worden sind, größer epsilon ist und dadurch die entsprechenden matrixelemente weiß sind?!? und das kann man doch nun mit dem richtigen step in range(....) lösen oder nicht?? es muss nur:
+1. kein ganzer teiler von 2\pi
+2. ausreichend großer rest, der sich addiert mit jeder phase, dass hin und wieder kein punkt in epsilon nähe zu finden ist (2\pi/(2\pi-0.5) hat einen rest von 0.5 und wenn man dann bei 0 batastet/erzeugt, und dann erst wieder nach 2\pi-0.5 dann hat man 0.5 differenz zwischen den ersten beiden punkten, also nach einem zeitschritt und dann wieder einen zeitschritt später, also weitere 2\pi-0.5 später (da also der abtast-zeitschritt so lang ist, dass genau 2\pi-0.5/2\pi der gesamten periode durchlaufen), hat man dann schon zum ersten messwert/abtastung/erzeugung eine differenz von 1 und je nahc epsilon entsprechend keinen schwarzen punkt mehr in der waagerechten zeile wo andere punkte in der zugehörigen diagonale schon wieder oder noch schwarz sind)
+?!?!?!?!\\
+1. Warum step=0.61 im 2D-System keine Lücken erzeugt
+
+Dein Gedankengang mit dem Phasen-Rest (dass die abgetasteten Punkte durch den ungeraden Teiler in jeder Periode woanders liegen) ist für die einzelnen Punkte im Phasenraum zu 100 % korrekt. Der Denkfehler liegt in der Übersetzung dieser Punkte auf eine Diagonale im Recurrence Plot.
+
+Eine Diagonale im RP ist definiert durch einen konstanten zeitlichen Abstand: $d = i - j$. Wenn du dich entlang einer Diagonale nach oben rechts bewegst, schreiten die Zeitpunkte $t_i$ und $t_j$ zwar voran, aber ihre Differenz bleibt immer exakt gleich ($t_i - t_j = d \cdot \text{step}$).
+
+Rechnen wir nun den quadrierten Abstand $D^2$ für den 2D-Oszillator $[\sin(t), \cos(t)]$ exakt auf so einer Diagonale aus:
+$D^2(i, j) = (\sin(t_i) - \sin(t_j))^2 + (\cos(t_i) - \cos(t_j))^2$
+
+Wenn man das mit den binomischen Formeln und $\sin^2(x) + \cos^2(x) = 1$ auflöst, bleibt exakt übrig:
+$D^2(i, j) = 2 - 2\cos(t_i - t_j)$
+
+Da auf unserer Diagonale die Differenz $t_i - t_j$ eine feste Konstante ist, ist auch der Wert $\cos(t_i - t_j)$ eine Konstante. Das bedeutet: Der räumliche Abstand $D^2$ verändert sich entlang der Diagonale überhaupt nicht.
+
+Ist dieser konstante Wert $\le \epsilon^2$, ist jeder einzelne Pixel der gesamten Diagonale schwarz. Du erhältst eine massive, unendliche Linie.
+
+Ist der Wert $> \epsilon^2$, ist die komplette Diagonale weiß.
+
+Deine Überlegung mit dem Phasen-Rest durch step=0.61 ändert also lediglich, welche spezifischen Diagonalen massiv schwarz werden und welche massiv weiß. Sie kann aber niemals Lücken (einen Wechsel zwischen schwarz und weiß) innerhalb derselben Diagonale erzeugen. Eine Kreisbahn hat keinen schwankenden Radius.\\
+das verstehe ich!!
+Lösung?\\
+zwei neue systeme statt dem einen versuch zu stricheln:
+1. Rauschen hinzufügen (Klasse 2.3): Simuliere Messrauschen, das die Trajektorie minimal aus dem $\epsilon$-Schlauch schubst. Ändere deinen Code einfach zu:x_harm_osc_3 = hcat(sin.(t_harm_osc_3), cos.(t_harm_osc_3)) .+ 0.05 .* randn(N_points, 2)
+2. Quasiperiodizität: Addiere zwei Schwingungen mit inkommensurablen Frequenzen, sodass die Zyklen nie perfekt deckungsgleich sind:x_harm_osc_3 = hcat(sin.(t) .+ sin.(sqrt(2).*t), cos.(t) .+ cos.(sqrt(2).*t))
+
+?!\\
+
+\\
+weshalb rechnet mein code ewig an den dicken linien (Klasse2 PD unrecognizable)?\\
+Norberts sampling klappt bei den harmonischen osc.s mit sin cos time delay embedding nicht!
+weshalb? 
+findet keine anfangspunkte behauptet gemini.
+aber nur sin schlechtes embedding sieht der rp mindestens genauso kontinuierlich aus! aber dort sind dicke linein vorhanden, also die äußeren diag.s sind sehr vereinzelt nur schwarz, aber lang genug vielleicht? deshalb klappen die dicken linien, aber nicht die dünnen sehr kontinuierlichen(wenige lücken also auch wenige "startpunkte" die norberts samp sucht)
+?!\\
+Damit (siehe oben "1. Warum step=0.61 im 2D-System keine Lücken erzeugt") hast du die Antwort auf deine zweite Frage eigentlich schon selbst gegeben. Norberts Zufalls-Sampling funktioniert nach der Prämisse: 
+"Finde zufällig einen schwarzen Punkt, prüfe, ob der Punkt direkt davor weiß ist. Wenn ja, haben wir einen Linienanfang gefunden. Wenn nein (der Punkt davor ist auch schwarz), verwirf den Treffer und suche weiter."
+
+Das 2D-System (Endlosschleife): 
+Wie wir oben bewiesen haben, sind die Linien massiv. Es gibt im Inneren der 10.000x10.000 Matrix absolut keine Linienanfänge (weiße Pixel direkt vor schwarzen auf der Diagonale). Die Linien starten alle an den äußeren Rändern der Matrix ($i=1$ oder $j=1$). Die Wahrscheinlichkeit, dass die Zufallsfunktion exakt den einen Startpixel am Rand der Matrix trifft, geht gegen Null. Der Algorithmus trifft Millionen schwarzer Punkte, merkt jedes Mal, dass es kein Startpunkt ist, und dreht sich im Kreis.
+
+Das 1D-System (Schlechtes Embedding funktioniert): 
+Warum reißt das schlechte Embedding (sin only) hier Lücken und macht den Algorithmus pfeilschnell? Die Mathematik ist hier völlig anders. Der Abstand ist nur:
+$D^2(i, j) = (\sin(t_i) - \sin(t_j))^2$
+Mit den trigonometrischen Additionstheoremen umgeformt ergibt das:
+$D^2(i, j) = 4 \cdot \cos^2\left(\frac{t_i + t_j}{2}\right) \cdot \sin^2\left(\frac{t_i - t_j}{2}\right)$
+
+Hier geschieht die Magie: 
+Der Abstand hängt plötzlich vom Term $(t_i + t_j)$ ab! Während du auf der Diagonale nach oben rechts gehst (wo $t_i - t_j$ konstant bleibt), wächst die absolute Zeit $t_i + t_j$ unaufhörlich an.Der Abstand $D^2$ pocht (oszilliert) wie eine Schwebung entlang der Diagonale. Die Distanz taucht periodisch in den $\epsilon$-Schlauch ein und wieder heraus.
+
+Das Resultat: 
+Die Diagonale zerfällt in unzählige gestrichelte Linien (Lücken). Diese Lücken bedeuten Zehntausende von Linienanfängen quer verteilt im Inneren der Matrix. Norberts Sampling wirft den Zufallspfeil, trifft nach wenigen Millisekunden einen dieser vielen Startpunkte und rechnet das RP extrem schnell durch.\\
+verstehe ich!!\\
+Fazit für deinen Code:
+Dieser mathematische Beweis ist das ultimative Argument für die Überlegenheit deiner LFboth-Methode (Line Following Both ways). LFboth braucht keine Startpunkte. Es landet zufällig irgendwo auf einer der massiven, dicken 2D-Linien, läuft nach oben und nach unten, misst sofort die korrekte Länge der gesamten Struktur und spart sich die Endlossuche.\\
+Sollte norbert damit insgesamt mehr reißen?! (dazu weiter im abschnitt "versionen erstellen")
+\\
 Wie entstehen die antidiagonalen?\\
+
+\\
+wie entstehen die dicken linien bei Klasse2 PD unrecognizable und bei PD rec und harm osc optimal nicht?\\
 
 \\
 (doi:10.1016/j.physrep.2006.11.001 
@@ -15695,7 +15765,19 @@ Für deinen konkreten Fall ist die Antwort eindeutig: Die while-Schleife mit dem
 \\
 #### while implementiert\\
 test für neu implementiertes W in hybrid1_dep_womf:
-C:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Testis\W_abstand_nach_gefundener_diag_in_zeile_i.md
+C:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Testis\W_abstand_nach_gefundener_diag_in_zeile_i.md\\
+doch nicht
+\\
+Norberts sampling klappt bei den harmonischen osc.s mit sin cos time delay embedding nicht! (ewiges "julia evaluating")
+weshalb? 
+findet keine anfangspunkte behauptet gemini.
+aber nur sin schlechtes embedding sieht der rp mindestens genauso kontinuierlich aus! aber dort sind dicke linein vorhanden, also die äußeren diag.s sind sehr vereinzelt nur schwarz, aber lang genug vielleicht? deshalb klappen die dicken linien, aber nicht die dünnen sehr kontinuierlichen(wenige lücken also auch wenige "startpunkte" die norberts samp sucht)\\
+ergo:
+alle versionen noch mit norbert lfb und mit norbert linienanfang erstellen udn dann vergleichen.
+zunächst nur hybrid1_dep_womf_wnlfb (with norbert lfb) und entsprechend mit den neuen klasse 2 systemen gestrichelt und ungestrichelt, dicke und dünne linien, antidiagonalen und keine testen, wobei an den dünnen ungestrichelten linien von vornherein nur die methoden ohne norbert oder nur mit norbertlfb getestet werden:
+C:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Testis\W_abstand_nach_gefundener_diag_in_zeile_i_UND_hybrid1_dep_womf_wnlfb_und_mit_konservativem_norbert.md
+\\
+irgendwas stimmt gar nchith!!
 %
 ## testis testis testis und ausbessern/optimieren bis hin zu finalen versionen der vorabschätzenden parameter zur periodizitätsprüfung und der entweder absoluten werte und der überlegten gesetzmäßigkeiten 
 \\

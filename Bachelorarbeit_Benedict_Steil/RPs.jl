@@ -61,19 +61,28 @@ x_harm_osc_2 = hcat(sin.(t_harm_osc_2), cos.(t_harm_osc_2))
 
 
 # ---------------------------------------------------------
-# KLASSE 2.3: PERIODIC (HARMONIC OSCILLATOR) - Gestrichelte Linien
+# KLASSE 2.3: PERIODIC (HARMONIC OSCILLATOR) - Messrauschen
 # ---------------------------------------------------------
-t_harm_osc_3 = range(0, step=0.61, length=N_points)
-x_harm_osc_3 = hcat(sin.(t_harm_osc_3), cos.(t_harm_osc_3))
+Random.seed!(123)
+t_harm_osc_3 = range(0, step=0.1, length=N_points)
+x_harm_osc_3 = hcat(sin.(t_harm_osc_3), cos.(t_harm_osc_3)) .+ 0.05 .* randn(N_points, 2)
 ε_harm_osc_3 = 0.1 * (maximum(x_harm_osc_3) - minimum(x_harm_osc_3))   
 
 
 # ---------------------------------------------------------
-# KLASSE 2.4: PERIODIC (HARMONIC OSCILLATOR) - Perfekte Resonanz
+# KLASSE 2.4: QUASIPERIODIC (HARMONIC OSCILLATOR) - Inkommensurable Frequenzen
 # ---------------------------------------------------------
-t_harm_osc_4 = range(0, step=0.1*pi, length=N_points)
-x_harm_osc_4 = hcat(sin.(t_harm_osc_4), cos.(t_harm_osc_4))
+t_harm_osc_4 = range(0, step=0.1, length=N_points)
+x_harm_osc_4 = hcat(sin.(t_harm_osc_4) .+ sin.(sqrt(2).*t_harm_osc_4), cos.(t_harm_osc_4) .+ cos.(sqrt(2).*t_harm_osc_4))
 ε_harm_osc_4 = 0.1 * (maximum(x_harm_osc_4) - minimum(x_harm_osc_4))   
+
+
+# ---------------------------------------------------------
+# KLASSE 2.5: PERIODIC (HARMONIC OSCILLATOR) - Perfekte Resonanz
+# ---------------------------------------------------------
+t_harm_osc_5 = range(0, step=0.1*pi, length=N_points)
+x_harm_osc_5 = hcat(sin.(t_harm_osc_5), cos.(t_harm_osc_5))
+ε_harm_osc_5 = 0.1 * (maximum(x_harm_osc_5) - minimum(x_harm_osc_5))   
 
 
 # ---------------------------------------------------------
@@ -152,8 +161,9 @@ save_recurrence_plot("KLASSE 1 - CHAOS (LORENZ)", x_lorenz, ε_lorenz)
 
 save_recurrence_plot("KLASSE 2.1 - PERIODIC BE (1D)", x_harm_osc_1, ε_harm_osc_1)
 save_recurrence_plot("KLASSE 2.2 - PERIODIC PD (Dicke Linien)", x_harm_osc_2, ε_harm_osc_2)
-save_recurrence_plot("KLASSE 2.3 - PERIODIC PD (Gestrichelte Linien)", x_harm_osc_3, ε_harm_osc_3)
-save_recurrence_plot("KLASSE 2.4 - PERIODIC (Resonanz)", x_harm_osc_4, ε_harm_osc_4)
+save_recurrence_plot("KLASSE 2.3 - PERIODIC PD (Messrauschen)", x_harm_osc_3, ε_harm_osc_3)
+save_recurrence_plot("KLASSE 2.4 - QUASIPERIODIC", x_harm_osc_4, ε_harm_osc_4)
+save_recurrence_plot("KLASSE 2.5 - PERIODIC (Resonanz)", x_harm_osc_5, ε_harm_osc_5)
 
 save_recurrence_plot("KLASSE 3 - WHITE NOISE", x_noise, ε_noise)
 save_recurrence_plot("KLASSE 4 - DRIFT (RANDOM WALK)", x_drift, ε_drift)
