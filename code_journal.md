@@ -15000,7 +15000,9 @@ und dann fft und was es noch so gäbe für vorauswahl der parameterwerte (chek_l
 ### 02 h : 52 min am 13.10.2026
 # 14.10.2026
 ### 03 h : 00 min am 14.10.2026
-# 
+# 15.10.2026
+### 02 h : 45 min am 15.10.2026
+#
 %
 ## momentan vorhandene Systeme überprüfen, d.h. RPs ausgeben lassen als schöne abbildung 
 \\
@@ -15087,10 +15089,38 @@ Dieser mathematische Beweis ist das ultimative Argument für die Überlegenheit 
 Sollte norbert damit insgesamt mehr reißen?! (dazu weiter im abschnitt "versionen erstellen")
 \\
 Wie entstehen die antidiagonalen?\\
+Wie entstehen Antidiagonalen?
 
+Während Diagonale (Steigung $+1$) bedeuten, dass zwei Trajektorienabschnitte in dieselbe Zeitrichtung parallel verlaufen, entstehen Antidiagonale (Steigung $-1$), wenn zwei Trajektorienabschnitte in entgegengesetzter Zeitrichtung verlaufen oder sich spiegelbildlich durchschneiden.
+Mathematisch bedeutet eine Antidiagonale im Punkt $(i, j)$:
+$$x_{i + \Delta t} \approx x_{j - \Delta t}$$
+
+Wenn der Index $i$ nach vorne läuft ($+1, +2, \dots$), muss der Index $j$ rückwärts laufen ($-1, -2, \dots$), um in der $\epsilon$-Nachbarschaft zu bleiben.
+
+Physikalische Ursache: Schlechte Einbettung (Bad Embedding)
+
+Das Phänomen der Antidiagonalen tritt extrem prägnant bei der 1D-Darstellung $x(t) = \sin(t)$ auf (KLASSE 2.1 - PERIODIC BE).
+
+1. Hin- und Rückweg im 1D-Phasenraum:
+Wenn ein harmonischer Oszillator in 1D gemessen wird, hast du nur die Position $x$, aber keine Geschwindigkeitsinformation $\dot{x}$.
+
+Auf dem Hinweg schwingt das System von $x = -1$ nach $x = +1$ (z. B. $x(t)$ steigt von $0$ auf $0{,}5$ auf $1{,}0$).
+
+Auf dem Rückweg schwingt das System von $x = +1$ zurück nach $x = -1$ (z. B. $x(t')$ fällt von $1{,}0$ auf $0{,}5$ auf $0$).
+
+2. Verwechslung im eindimensionalen Raum:
+Bei $x = 0{,}5$ auf dem Hinweg ($t_1$) und $x = 0{,}5$ auf dem Rückweg ($t_2$) ist der Abstand $\Vert{}x(t_1) - x(t_2)\Vert{} = 0 < \epsilon$.Gehst du nun einen Schritt in der Zeit weiter ($t_1 + \Delta t$), steigt $x$ weiter an. Um bei $t_2$ denselben Wert zu finden, musst du in der Zeit zurückgehen ($t_2 - \Delta t$).
+
+3. Auflösung durch korrekte Rekonstruktion (2D):
+Sobald du das System in 2D einbettest – z. B. $x(t) = (\sin(t), \cos(t))$ – ist der Zustand auf dem Hinweg $(0{,}5; +\sqrt{0{,}75})$ und auf dem Rückweg $(0{,}5; -\sqrt{0{,}75})$.Der Euklidische Abstand der Geschwindigkeiten verhindert nun, dass sich Hin- und Rückweg nahekommen:
+$$D = \sqrt{(0{,}5 - 0{,}5)^2 + (\sqrt{0{,}75} - (-\sqrt{0{,}75}))^2} = \sqrt{3} \approx 1{,}73 \gg \epsilon$$
+
+Fazit: Antidiagonale sind das charakteristische Merkmal dafür, dass Trajektorien sich im projizierten Phasenraum selbst kreuzen oder sich in entgegengesetzter Richtung auf demselben Pfad bewegen. Sie verschwinden, sobald die Einbettungsdimension hoch genug gewählt ist, um die Richtung des Phasenflusses (z. B. über Impulse/Geschwindigkeiten) eindeutig zu trennen.
 \\
 wie entstehen die dicken linien bei Klasse2 PD unrecognizable und bei PD rec und harm osc optimal nicht?\\
-
+Also, der drift, erzeugt durch die in jeder periode an unterschiedlicher stelle/phase vorgenommene abtastung/messung, sorgt dafür, dass mehrere messpunkte in der \epsilon nachbarschaft sind?! also z.B.: Statt das einer exakt wieder auf der spitze des wellenbergs ist und einer davor gerade außerhalb und der punkt aus der messung direkt nach dem punkt auf dem wellenberg gerade außerhalb auf der anderen seite der epsilon-nachbarschaft ist, sind nun, durhc die inkommensurable abtastung, zwei punkte in der nachbarschaft, bei inkommensurabler abtast frequenz, da der punkt welcher bei perfekter abtast frequenz immer wieder auf dem wellenberg wäre nun leicht versetzt vor den berg ist und der etwas näher liegende punkt danach ist nun auch in der epsilon umgebung?!\\
+gemini:
+Detaillierte Bestätigung: Warum die Linien "dick" werdenIm kontinuierlichen Phasenraum zieht die Trajektorie eines periodischen Systems eine geschlossene Schleife. Um diese Trajektorie liegt durch deinen Schwellenwert $\epsilon$ ein kontinuierlicher $\epsilon$-Schlauch (Tube).Perfekte/Kommensurable Abtastung:Die diskreten Abtastpunkte landen in jeder Periode exakt an derselben relativen Phasenposition auf der Schleife. Das bedeutet:$$\Vert{}x_i - x_{i + k \cdot T_{\text{index}}}\Vert{} = 0 < \epsilon$$Sowohl der Punkt davor ($(i-1)$) als auch der Punkt danach ($(i+1)$) liegen bezüglich des Phasenabstands symmetrisch weit genug entfernt und fallen aus dem $\epsilon$-Schlauch heraus. In der Recurrence-Matrix wird genau ein Pixel auf der Diagonale schwarz.Inkommensurable Abtastung (Drift):Da die Schrittweite kein ganzzahliger Teiler der Periode ist, wandern die diskreten Abtastpunkte von Periode zu Periode langsam entlang der Phase.Wenn Punkt $x_i$ im Wellenberg liegt, trifft der Punkt $x_j$ eine Periode später nicht mehr exakt die Spitze, sondern liegt leicht davor. Weil der Drift pro Periode aber sehr klein ist, reicht die Strecke im Phasenraum noch nicht aus, um die $\epsilon$-Kugel zu verlassen.Daher gilt sowohl für $x_j$ als auch für den direkt folgenden Nachbarpunkt $x_{j+1}$ (oder $x_{j-1}$):$$\Vert{}x_i - x_j\Vert{} \le \epsilon \quad \text{und} \quad \Vert{}x_i - x_{j+1}\Vert{} \le \epsilon$$In der Matrix bedeutet das: Nicht nur die Diagonale $j = i + \text{Offset}$ wird schwarz, sondern auch die parallelen Nebendiagonalen $j+1$ und $j-1$. Aus einer 1-Pixel-Linie wird ein mehrköpfiger, breiter Bandstreifen.
 \\
 (doi:10.1016/j.physrep.2006.11.001 
 3.2.4 Influence of embedding on the structures in RP (und umliegende kapitel vlt auch als wesentliche quelle zur beantwortung obiger fragen))
@@ -15777,11 +15807,104 @@ alle versionen noch mit norbert lfb und mit norbert linienanfang erstellen udn d
 zunächst nur hybrid1_dep_womf_wnlfb (with norbert lfb) und entsprechend mit den neuen klasse 2 systemen gestrichelt und ungestrichelt, dicke und dünne linien, antidiagonalen und keine testen, wobei an den dünnen ungestrichelten linien von vornherein nur die methoden ohne norbert oder nur mit norbertlfb getestet werden:
 C:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Testis\W_abstand_nach_gefundener_diag_in_zeile_i_UND_hybrid1_dep_womf_wnlfb_und_mit_konservativem_norbert.md
 \\
-irgendwas stimmt gar nchith!!
+irgendwas stimmt gar nchith!! 
+Nur geschwidnigkeit:
+Also norbert lfb scheint einfach zu versagen bei SYSTEM: KLASSE 2: BE+PD PERIODIC (HARMONIC OSCILLATOR)
+und ansonsten performed er bei den zwei gestrichelten besser als alle anderen
+und 
+die kontinuierlichen schafft er, aber tod langsam.
+und 
+komplett homogenous noise verkackt er als langsamster
+und
+drift ist bisschen verkackt, aber noch dran in den seed werten an smilfb
+\\
+was heißt das?\\
+dauert es einfach deutlich länger so rein durchgängige periodische systeme zzu analysieren?
+falls ja, weshalb?
+wegen ewig lange linien verfolgen?
+kann ich noch in nlfb einbauen, dass der nur bis check length folgt? ne!!!! denn dann würde das die L werte zum RQA berechnen nötig verfälschen, das geht nur im periodizitätscheck! duh!
+\\
+ja, die linien müssen ja im rqa relevanten sampling ganz verfolgt werden und demnach dauert das bei so langen linien eben ewig.
+bei noise ist es wohl nur der overhead der periodizitätsprüfung.
+und bei be pd harm osc wohl auch die periodizitätsprüfung die kämpft. aber weshalb? und außerdem ist das eher unwahrscheinlihc, da ja hybrid1 dep womf relativ gut durch kommt und dort die periodizitätsprüfung exakt gelich ist oder?!
+JA!
+es ist die lfb die hier den untershcied macht. die verlängert bei be pd harm osc so sehr!?!\\
+ergibt insofern sinn:
+hybrid1_dep_womf_wnlfb ist also bei be pd ho langsamer, also norbert normal, wegen alle schwarzen punkte in beide richtungen verfolgen und ne!....
+so findet er doch auch schneller die M linien?!
+wahrscheinlich einfach zu viele einzelne punkte für die der linienverfolge algo gestartet wird und zeiut verbraucht??
+also dehsalb so viel mehr zeit!?\\
+
+und dann bei pd harm osc sorgt das wegnehmen der antidiagonalen für so einen verlust an einzelnen (soujorn) punkten und kurzen (soujorn) linien, dass norbert normal keine anfänge mehr findet und h1depwomfwnlfb läuft noch länger ab (hat aber immer noch einige einzelne punkte die ihn die verfolgung starten lassen, die dann in optimalem harm osc (?resonanz?) nicht mehr da sind, weshalb otimal ho quasi pd (unrecognizable) ist minus die soujorn artefakte!?!)
+\\
+weshalb kann norberts normaler only line beginnings algo be pd harm osc, aber nciht nur pd harm osc, wo der einzige unterschied ist, dass die antidiagonalen weg sind??\\
+Schau auf die durchschnittliche Linienlänge L von woRP:
+6 und 5000, also wenn rand sampling einen schwarzen punkt findet ist im schnitt die wahrsceinlichkeit einen startpunkt zu erwischen 1:6 und 1:5000 entsprechend oft muss der algo samplen und entsprechend dauert es lange oder nicht. 
+udn anscheinend kommt das durch die fetten punkte die weg sind an kreuzungsstellen der diags und antidiags insbesondere!?!
+\\
+# zwischen-evaluation:\\
+## ich verstehe die unterschiede bei den chaotischen systemen und noise und drift zwischen hybrid1_dep_womf_wnlfb und hybrid1_dep_womf nciht. hilfe bitte. \\
+
+
+ansonsten nimmt hybrid1_dep_womf_wnlfb alles auseinander außer noise und bad embedding pd harm osc.
+da bleibt dann noch über:
+## max_fails irgendwie implementieren, dass es nicht die performance und qualität für bestimmte systeme gefährdet. wobei ich mir unsicher bin ob das möglich ist!?\\
+
+
+und
+## bad embedding sollte nicht ?vorgesetzt? (an be sollte mein algo nicht benutzt werden anyways, weil das vorher schon ebi der systementwicklung vermieden werden sollte) werden oder?.\\
+
+
+## ich will noch die qualität und zeit optimieren indem ich sojourn artefakte ignoriere. Wie am besten?\\
+das eigentliche theiler fesnter sowohl in die periodizitätsprüfung als auch in das rqa sampling einbauen
+also
+Du ignorierst bei der zufälligen Ziehung der Start-Indizes einfach alle Punkte, für die $\vert{}i - j\vert{} \le W$ gilt. Du sparst massiv Rechenzeit, indem du den Bereich rund um die Main Diagonal (LOI) systematisch aus dem Sampling ausschließt.
+
+## norbert hatte etwas erwähnt, dass man die optimalen werte der diversen parameter in der periodizitätsprüfung vorabschätzen könne. z.B.: mit fast fourier transformation. Ich verstehe nichts davon und habe keine ahnung ob das ein pfad ist den ich noch verfolgen sollte, da dieser zur absoluten optimierung führt oder ob das eine verschwendung wäre. gibt es dazu belastbare daten?\\
+gemini:
+Was Norbert vorgeschlagen hat, funktioniert in der Theorie hervorragend, um die dominante Frequenz (und damit die Periodenlänge) eines Systems zu finden. Für dein spezifisches Ziel – einen ultraschnellen Approximations-Algorithmus zu schreiben – ist es jedoch eine methodische Sackgasse.
+Eine FFT über die Zeitreihe skaliert mit $\mathcal{O}(N \log N)$. Wenn du erst eine globale FFT berechnest, um Parameter für dein Sampling zu schätzen, hast du den Laufzeitvorteil des stochastischen Samplings bereits verspielt, bevor der RQA-Algorithmus überhaupt gestartet ist. Du baust einen enormen Overhead auf. Bleib bei deiner aktuellen Heuristik, die RQA-Dichte stichprobenartig über estimate_RR zu prüfen – das skaliert $\mathcal{O}(1)$ unabhängig von der Systemgröße und reicht für die Parametersteuerung völlig aus.   
+
+## hast du sonst noch ideen zu optimierung?\\
+Die Berechnung deiner linearen Indizes ist momentan dein größter versteckter Flaschenhals.
+In hybrid1_dep_womf_wnlfb berechnest du die Übersetzung des linearen Index idx in i_start und j_start für jeden einzelnen Suchschritt mit einer Fließkomma-Wurzelfunktion (sqrt(Float64((2.0 * N - 1)^2 - 8 * idx))) und anschließenden Rundungen (ceil).
+Da dieser Code-Block Zehntausende Male aufgerufen wird, brennt diese Wurzelberechnung unnötig CPU-Zyklen.
+Zieh in Betracht, auf Rejection Sampling für die Koordinaten umzusteigen (ziehe zufällig $i$ und $j$ direkt aus $1:N$; ist $i \le j$, verwirf das Paar und ziehe neu). Das kostet zwar ab und zu einen Fehlversuch, benötigt aber nur simple Integer-Arithmetik und ist in Julia oft deutlich schneller als die mathematisch elegante, aber extrem teure Index-Rückübersetzung via Quadratwurzel. 
+
+\\
+## max_fails erträglich in hybrid1_dep_wnlfb einbauen?\\
+
+\\
+## max_misses in die rqa relevanten samplings einbauen, um qualität der rqa werte zu verbessern?\\
+
+\\
+## soujorn linien und punkte ignorieren machen irwie?!\\
+
+\\
+## epsilon optimieren?\\
+
+\\
+## konvergenzkriterium anpasssen??\\
+
+\\
+## noch lfb (hybrid2) periodizitätsprüfung versionen machen? falls nein, weshalb?\\
+
 %
 ## testis testis testis und ausbessern/optimieren bis hin zu finalen versionen der vorabschätzenden parameter zur periodizitätsprüfung und der entweder absoluten werte und der überlegten gesetzmäßigkeiten 
 \\
 ### jeden parameter einzeln durchtesten
+\\
+## max_misses in die rqa relevanten samplings einbauen, um qualität der rqa werte zu verbessern?\\
+
+\\
+## soujorn linien und punkte ignorieren machen irwie?!\\
+
+\\
+## epsilon optimieren?\\
+
+\\
+## konvergenzkriterium anpasssen??\\
+
 \\
 
 %

@@ -479,7 +479,7 @@ evaluate_system("KLASSE 2: QUASIPERIODIC (HARMONIC OSCILLATOR)", x_harm_osc_4, Î
 
 # ---------------------------------------------------------
 # KLASSE 2: PERIODIC (HARMONIC OSCILLATOR) 
-# (Perfekte ?Resonanz?)
+# (Perfekte Resonanz (phasenkongruenz (a la konstruktive interferenz)))
 # ---------------------------------------------------------
 t_harm_osc_5 = range(0, step=0.1*pi, length=N_points)
 x_harm_osc_5 = hcat(sin.(t_harm_osc_5), cos.(t_harm_osc_5))
