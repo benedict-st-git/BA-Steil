@@ -1,5 +1,8 @@
-
-
+# needed ?packages?
+using Statistics
+using StaticArrays
+using Random
+#xxxx
 
 
 
@@ -273,42 +276,6 @@ function get_hist_diagonal_stratified_sampled(x::AbstractMatrix{T}, ε::T, M::In
     return L_local, countAll
 end
 
-"""
-Sampling 2.0.1: estimate_RR for Stratified Sampling (RPLL(RPLineLengths) als Basis - no combinations))
-    -
-    xxxx
-"""
-
-function estimate_RR(x::AbstractMatrix{T}, ε::T) where {T<:AbstractFloat}
-    N, dim = size(x)
-    total_pairs = N * (N - 1) ÷ 2
-    ε2 = ε^2
-    hits = 0  # Zählt die schwarzen Punkte
-    samples = min(2000, max(1, Int(floor(0.1 * total_pairs))))
-
-    for _ in 1:samples
-        # 1. Ziehe einen zufälligen linearen Index
-        idx = rand(1:total_pairs)
-        
-        # 2. Übersetze in (i, j)
-        i = ceil(Int, (1 + sqrt(1 + 8*idx)) / 2)
-        j = idx - (i - 1) * (i - 2) ÷ 2
-        
-        # 3. Berechne Distanz
-        D2 = zero(T)
-        @inbounds for k in 1:dim
-            D2 += (x[i,k] - x[j,k])^2
-        end
-        
-        # 4. Zähle Treffer
-        if D2 <= ε2
-            hits += 1
-        end
-    end
-    
-    # RR = (Schwarze Punkte) / (Alle gezogenen Punkte)
-    return hits / samples
-end
 
 """
     Sampling 3.1: stratified- + memory + importance sampling (RPLL(RPLineLengths) als Basis - 2 combinations in samplings)
@@ -1901,17 +1868,14 @@ end
 Sampling 4.2.1.1: hybrid1_dep ohne max_fails (und andere deps?) wnlfb
 """
 
-function hybrid1_dep_womf_wnlfb(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true, check_periodicity::Bool = true) where {T<:AbstractFloat}
-    N, dim = size(x)                  # Number of observations and variables
+function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true) where {T<:AbstractFloat}
+    N = length(x)                  # Number of observations and variables
     L_local = zeros(Float64, N)           # Histogram for line lengths - mit typ float64, wegen korrektur in zählung der linien bestimmter länge (1/cnt)
     # L_local_old = zeros(Int, N)       # Histogram for line lengths
     ε2 = ε^2                          # Squared threshold (avoids sqrt)
     count = 0                         # Number of valid lines found
     countAll = 0                      # Number of searches
     total_pairs = N * (N - 1) ÷ 2     # Number of (i,j) paires with i > j (excl. LOI)
-
-    det_history = Float64[]
-    l_history   = Float64[]
 
     # Convergenz parameter
     K = 50              # newly calculate all K lines
@@ -1923,6 +1887,13 @@ function hybrid1_dep_womf_wnlfb(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Fl
     sum_n2_L = 0.0   # sum(n * L[n]) for n >= 2
     sum_L2   = 0.0   # sum(L[n]) for n >= 2
     
+    det_ring = zeros(Float64, W)
+    l_ring   = zeros(Float64, W)
+    ring_idx = 1
+    history_count = 0
+
+    rng = Xoshiro() # ??
+
     # check periodicity by checking diagonals for black points (by going through the columns of the 2N÷3 th row <=> 2/3 of the diagonals are checked) and suffieciently equidistant periodic distances in between them and if so, then the line length is checked for sufficent length (dynamically determined conditions (sufficient length, fraction of the matrix/RP that is getting checked )? and absolute conditions (sufficient number of black diagonals, error in equidistance of the potential period in between the black diagonals)?)
     check_length = clamp(N ÷ 20, 15, 100) # dynamisch besser !? -> !! und max besser als clamp?? gefhar auf unnötig lange prüfungen?
     max_misses = 3 # max weiße punkte am stück bei linienverfolgung, bevor abgebrochen wird. absolut ist am, besten?
@@ -1931,27 +1902,30 @@ function hybrid1_dep_womf_wnlfb(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Fl
     d1 = d2 = d3 = d4 = d5 = -1 # -1 heißt einfach noch keine reale diagonale zugewiesen; diagonalen-ID ist immer d > 0 , außer LOI d=0
     i = N - check_length # oberste zeile, die noch eine diagonale von länge check_length im upper_triangle zulässt
                         # eig doch digonal check_length nur benötigt, also i = N - (a=\sqrt(check_length**2 - c**2)) ?? aber wir wollen keine wurzeln, also reicht uns N-check_length??
-    W = clamp(N ÷ 50, 15, 100)           # drift nahe LOI oder ähnliche einfach schwarze masseneffekte (theiler window, soujorn/verweil zeit) nicht berücksichtigen
     period_equidistance_error = 2 # maximal erlaubter fehler in der äquidistanz der abstände/perioden zwischen den aktuell geprüften diagonalen
-    current = 1 # aktuelle spalte in zeile i
-
-    @inbounds while current <= (i-1)
+    W = estimate_W(rng, x, ε) # Theiler-Window
+    current = i - W # aktuelle spalte in zeile i
+    W_soujorn = max(3, W)           # pause_after_long_diag; drift nahe LOI oder ähnliche einfach schwarze masseneffekte (theiler window, soujorn/verweil zeit) nicht berücksichtigen
+    estimated_RR = estimate_RR(rng, x, ε)
+    # Bei hohem RR (viel Rauschen/Dichte) brechen wenige Fehlversuche das Verfahren ab (z.B. 20).
+    # Bei kleinem RR darf der Algorithmus mehr seltene schwarze Punkte testen (bis zu 150).
+    max_fails = clamp(round(Int, 3.0 / max(estimated_RR, 0.01)), 15, 150)
+    failed_attempts = 0
+   
+    @inbounds while current >= 1
+        if failed_attempts >= max_fails
+            break
+        end
+        
         misses = 0 # wegen ?zähler? 0 und nicht zero(T) ?!?
-        D2_point_in_i = zero(T)
-        @inbounds for k in 1:dim
-            D2_point_in_i += (x[i,k] - x[current,k])^2
-        end 
-        if D2_point_in_i <= ε2  # point in row i and therefore diagonal d is black => line following (up)
+        if sq_dist(x, i, current) <= ε2  # point in row i and therefore diagonal d is black => line following (up)
             is_long_line = true
             @inbounds for offset in 1:check_length
-                D2_line_following = zero(T) # verbesserung: zero(T) ?!
-                @inbounds for k in 1:dim
-                    D2_line_following += (x[i + offset,k] - x[current + offset,k])^2
-                end
-                if D2_line_following > ε2          # line is shorter than check_length
+                if sq_dist(x, i+offset, current+offset) > ε2          # line is shorter than check_length
                     misses += 1
                     if misses >= max_misses
                         is_long_line = false
+                        failed_attempts += 1
                         break
                     end
                 else
@@ -1963,39 +1937,51 @@ function hybrid1_dep_womf_wnlfb(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Fl
                 if long_lines == 0
                     long_lines += 1
                     d1 = d
-                    current += W
+                    current -= W_soujorn
                 elseif long_lines == 1
                     long_lines += 1
                     d2 = d
-                    current += W
+                    current -= W_soujorn
                 elseif long_lines == 2
                     long_lines += 1
                     d3 = d
-                    current += W
-                    if abs((d1-d2)-(d2-d3)) <= period_equidistance_error         # check for equidistance (constant period (with maximum error of two pixels and minimum period_length)) in bewtween diagonals 
+                    current -= W_soujorn
+                    d12 = d1 - d2
+                    d23 = d2 - d3
+
+                    if abs(d12-d23) <= period_equidistance_error         # check for equidistance (constant period (with maximum error of two pixels and minimum period_length)) in bewtween diagonals 
                         is_periodic = true
                         break
                     end
                 elseif long_lines == 3
                     long_lines += 1
                     d4 = d
-                    current += W
-                    if (abs((d1-d2)-(d2-d4)) <= period_equidistance_error )|| 
-                       (abs((d1-d3)-(d3-d4)) <= period_equidistance_error )|| 
-                       (abs((d2-d3)-(d3-d4)) <= period_equidistance_error )
+                    current -= W_soujorn
+                    d34 = d3 - d4
+                    d24 = d2 - d4
+                    d13 = d1 - d3
+
+                    if (abs(d12-d24) <= period_equidistance_error )|| 
+                       (abs(d13-d34) <= period_equidistance_error )|| 
+                       (abs(d23-d34) <= period_equidistance_error )
                         is_periodic = true
                         break
                     end
                 elseif long_lines == 4
                     long_lines += 1
                     d5 = d
-                    current += W
-                    if (abs((d1-d2)-(d2-d5)) <= period_equidistance_error )|| 
-                        (abs((d1-d3)-(d3-d5)) <= period_equidistance_error) ||
-                        (abs((d1-d4)-(d4-d5)) <= period_equidistance_error) || 
-                        (abs((d2-d3)-(d3-d5)) <= period_equidistance_error) || 
-                        (abs((d2-d4)-(d4-d5)) <= period_equidistance_error) || 
-                        (abs((d3-d4)-(d4-d5)) <= period_equidistance_error)          # check for equidistance (constant period (with maximum error of two pixels)) in bewtween diagonals 
+                    current -= W_soujorn
+                    d15 = d1 - d5
+                    d25 = d2 - d5
+                    d35 = d3 - d5
+                    d45 = d4 - d5
+
+                    if (abs(d12-d25) <= period_equidistance_error )|| 
+                        (abs(d13-d35) <= period_equidistance_error) ||
+                        (abs(d14-d45) <= period_equidistance_error) || 
+                        (abs(d23-d35) <= period_equidistance_error) || 
+                        (abs(d24-d45) <= period_equidistance_error) || 
+                        (abs(d34-d45) <= period_equidistance_error)          # check for equidistance (constant period (with maximum error of two pixels)) in bewtween diagonals 
                         is_periodic = true
                         break
                     else
@@ -2003,53 +1989,43 @@ function hybrid1_dep_womf_wnlfb(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Fl
                     end
                 end
             else
-                current += 1 # shcwarzer punkt, aber keine lange diagonale
+                current -= 1 # shcwarzer punkt, aber keine lange diagonale
             end
         else
-            current += 1 # weißer pixel
+            current -= 1 # weißer pixel
         end
     end 
 
 
     if is_periodic
         
-        # println("--> NORBERTS SAMPLING (DETECTED AS PERIODIC)")
+        # println("--> NORBERTS SAMPLING (wlfb) (DETECTED AS PERIODIC)")
         while count < M
             countAll += 1                 # Count number of searches
-            idx = rand(1:total_pairs)     # Random start pair (i,j) in linear notation
-            i_start = ceil(Int, (1 + sqrt(1 + 8*idx)) / 2)     # Translate linear index to i
-            j_start = idx - (i_start - 1) * (i_start - 2) ÷ 2  # Translate linear index to j
+            # Alternativ: Direktes Ziehen der Diagonale d in 1:(N-1) und der Spalte j
+            # (spart sqrt vollständig ein):
+            d = rand(rng, 1:(N-1))
+            j_start = rand(rng, 1:(N - d))
+            i_start = j_start + d
 
             #println("i: ", i_start, "  j: ", j_start)
 
             # 
-            D2 = zero(T)
-            @inbounds for k in 1:dim
-                D2 += (x[i_start,k] - x[j_start,k])^2
-            end
-            if D2 > ε2
+            if sq_dist(x, i_start, j_start) > ε2
                 continue  # kein schwarzer Punkt, nächster Versuch
             end
 
             # Black Point found, now count line length
             cnt = 0
             @inbounds for offset in 0:(N - i_start) # weshalb klappt das?
-                D2_line_following = zero(T) # verbesserung: zero(T) ?!
-                @inbounds for k in 1:dim
-                    D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
-                end
-                if D2_line_following <= ε2          # Count points belonging to diagonal
+                if sq_dist(x, i_start + offset, j_start + offset) <= ε2          # Count points belonging to diagonal
                     cnt += 1              # Extend diagonal
                 else
                     break                 # Line ends
                 end
             end
             @inbounds for offset in 1:(j_start-1) # weshalb klappt das?
-                D2_line_prev = zero(T) # verbesserung: zero(T) ?!
-                @inbounds for k in 1:dim
-                    D2_line_prev += (x[i_start - offset ,k] - x[j_start - offset ,k])^2
-                end
-                if D2_line_prev <= ε2          # Count points belonging to diagonal
+                if sq_dist(x, i_start - offset, j_start - offset) <= ε2          # Count points belonging to diagonal
                     cnt += 1              # Extend diagonal
                 else
                     break                 # Line ends
@@ -2063,19 +2039,23 @@ function hybrid1_dep_womf_wnlfb(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Fl
                 sum_n_L  += cnt * weight
                 sum_n2_L += cnt >= 2 ? cnt*weight : 0.0
                 sum_L2   += cnt >= 2 ? weight  : 0.0
-                # im Loop, nach count += 1:
+                
+                # 
                 if count % K == 0 && count >= min_samples
                     # DET und L direkt aus den Summen:
                     det_val = sum_n2_L / sum_n_L
                     l_val   = sum_n2_L / sum_L2
-                    push!(det_history, det_val)
-                    push!(l_history,   l_val)
-                    if length(det_history) >= W
+                    
+                    det_ring[ring_idx] = det_val
+                    l_ring[ring_idx]   = l_val
+                    ring_idx = (ring_idx % W) + 1
+                    history_count += 1
+                    if history_count >= W
                         # relative change over last window
-                        det_window = det_history[end-W+1:end] # verbesserung: @view added better?!?
-                        l_window   = l_history[end-W+1:end]
-                        rel_det = (maximum(det_window) - minimum(det_window)) / mean(det_window)
-                        rel_l   = (maximum(l_window)   - minimum(l_window))   / mean(l_window)
+                        det_window = det_ring
+                        l_window   = l_ring
+                        rel_det = calc_rel_change(det_window)
+                        rel_l   = calc_rel_change(l_window)
                         # Break if difference is not changing for last K iterations
                         if rel_det < tol && rel_l < tol
                             # println("Converged after $count samples (rel_det=$rel_det, rel_l=$rel_l)")
@@ -2095,7 +2075,7 @@ function hybrid1_dep_womf_wnlfb(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Fl
         if s !== nothing
             actual_s = s
         elseif auto_s
-            estimated_RR = estimate_RR(x, ε)
+            
 
             if estimated_RR < 0.05
                 # SEHR DÜNNES RP (z.B. Rössler): 
@@ -2128,28 +2108,29 @@ function hybrid1_dep_womf_wnlfb(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Fl
         num_boxes = min(total_pairs, max(1, round(Int, s_tilde)))
         box_length_dyn = total_pairs ÷ num_boxes
         current_box = 0
-        active_boxs = Int[]
+        active_boxs = Vector{Int}(undef, num_boxes)
+        active_box_count = 0
 
         for current_box in 1:num_boxes
             for _ in 1:estimated_tries_per_box # konstante anzahl an versuchen (z.B.: 10) pro box? oder dynamisch (wharshcienlichkeit weiß zu treffen nach der estimated_RR bei 7.7 (siehe oben))?
                 lower_bound = (current_box-1) * box_length_dyn + 1
                 upper_bound = current_box == num_boxes ? total_pairs : current_box * box_length_dyn
 
-                idx = rand(lower_bound:upper_bound)     # Random start pair (i,j) in linear notation
+                idx = rand(rng, lower_bound:upper_bound)     # Random start pair (i,j) in linear notation
 
-                d = ceil(Int, ((2.0 * N - 1) - sqrt(Float64((2.0 * N - 1)^2 - 8 * idx))) / 2) # which diagonal we are on
+                # isqrt zieht die Wurzel auf reiner Integer-Basis (abgerundet)
+                # Durch den cleveren Trick mit der ganzzahligen Division (÷) eliminieren wir das ceil()
+                N_const = 2N - 1
+                d = (N_const - isqrt(N_const^2 - 8 * idx + 1)) ÷ 2 + 1 # which diagonal we are on
                 previous_elements = (d - 1) * N - (d - 1) * d ÷ 2
                 j_start = idx - previous_elements     # spalte
                 i_start = j_start + d
 
-                D2 = zero(T)
-                @inbounds for k in 1:dim
-                    D2 += (x[i_start,k] - x[j_start,k])^2
-                end
-                if D2 > ε2
+                if sq_dist(x, i_start, j_start) > ε2
                     continue  
                 else
-                    push!(active_boxs, current_box)
+                    active_box_count += 1
+                    active_boxs[active_box_count] = current_box
                     break # raus aus der current box falls schwarzen punkt gefunden
                 end
             end
@@ -2159,7 +2140,7 @@ function hybrid1_dep_womf_wnlfb(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Fl
         current_box = 0
         while count < M
 
-            current_box = rand(active_boxs) 
+            current_box = active_boxs[rand(rng, 1:active_box_count)] 
             #if current_box > num_boxes
             #    current_box = 1
             #end
@@ -2168,41 +2149,30 @@ function hybrid1_dep_womf_wnlfb(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Fl
             upper_bound = current_box == num_boxes ? total_pairs : current_box * box_length_dyn
 
             countAll += 1                 # Count number of searches
-            idx = rand(lower_bound:upper_bound)     # Random start pair (i,j) in linear notation
+            idx = rand(rng, lower_bound:upper_bound)     # Random start pair (i,j) in linear notation
 
             # weshalb das folgende? mathe verstehen.
-            d = ceil(Int, ((2N - 1) - sqrt(Float64((2N - 1)^2 - 8 * idx))) / 2) # which diagonal we are on
+            N_const = 2N - 1
+            d = (N_const - isqrt(N_const^2 - 8 * idx + 1)) ÷ 2 + 1 # which diagonal we are on
             previous_elements = (d - 1) * N - (d - 1) * d ÷ 2
             j_start = idx - previous_elements     # spalte
             i_start = j_start + d                 # zeile größer spalte => oberes dreieck (diagonale von links unten nach rechts oben und achsen-nullpunkt links unten)
 
-            D2 = zero(T)
-            @inbounds for k in 1:dim
-                D2 += (x[i_start,k] - x[j_start,k])^2
-            end
-            if D2 > ε2
+            if sq_dist(x, i_start, j_start) > ε2
                 continue  # kein schwarzer Punkt, nächster Versuch
             end
 
             # Black Point found, now count line length
             cnt = 0
             @inbounds for offset in 0:(N - i_start) # weshalb klappt das?
-                D2_line_following = zero(T) # verbesserung: zero(T) ?!
-                @inbounds for k in 1:dim
-                    D2_line_following += (x[i_start + offset,k] - x[j_start + offset,k])^2
-                end
-                if D2_line_following <= ε2          # Count points belonging to diagonal
+                if sq_dist(x, i_start + offset, j_start + offset) <= ε2          # Count points belonging to diagonal
                     cnt += 1              # Extend diagonal
                 else
                     break                 # Line ends
                 end
             end
             @inbounds for offset in 1:(j_start-1) # weshalb klappt das?
-                D2_line_prev = zero(T) # verbesserung: zero(T) ?!
-                @inbounds for k in 1:dim
-                    D2_line_prev += (x[i_start - offset ,k] - x[j_start - offset ,k])^2
-                end
-                if D2_line_prev <= ε2          # Count points belonging to diagonal
+                if sq_dist(x, i_start - offset, j_start - offset) <= ε2          # Count points belonging to diagonal
                     cnt += 1              # Extend diagonal
                 else
                     break                 # Line ends
@@ -2221,14 +2191,17 @@ function hybrid1_dep_womf_wnlfb(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Fl
                     # DET und L direkt aus den Summen:
                     det_val = sum_n2_L / sum_n_L
                     l_val   = sum_n2_L / sum_L2
-                    push!(det_history, det_val)
-                    push!(l_history,   l_val)
-                    if length(det_history) >= W
+
+                    det_ring[ring_idx] = det_val
+                    l_ring[ring_idx]   = l_val
+                    ring_idx = (ring_idx % W) + 1
+                    history_count += 1
+                    if history_count >= W
                         # relative change over last window
-                        det_window = det_history[end-W+1:end] # verbesserung: @view added better?!?
-                        l_window   = l_history[end-W+1:end]
-                        rel_det = (maximum(det_window) - minimum(det_window)) / mean(det_window)
-                        rel_l   = (maximum(l_window)   - minimum(l_window))   / mean(l_window)
+                        det_window = det_ring
+                        l_window   = l_ring
+                        rel_det = calc_rel_change(det_window)
+                        rel_l   = calc_rel_change(l_window)
                         # Break if difference is not changing for last K iterations
                         if rel_det < tol && rel_l < tol
                             # println("Converged after $count samples (rel_det=$rel_det, rel_l=$rel_l)")
@@ -2239,7 +2212,7 @@ function hybrid1_dep_womf_wnlfb(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Fl
             end          
         end
 
-        countAll_correct_scaled = round(Int, countAll * (num_boxes / length(active_boxs)))
+        countAll_correct_scaled = round(Int, countAll * (num_boxes / active_box_count))
         return L_local, countAll_correct_scaled
 
     end
@@ -2703,3 +2676,95 @@ end
 
 
 
+"""
+Zusatzfunktion 1: estimate_RR
+"""
+@inline function estimate_RR(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε::T) where {T<:AbstractFloat}
+    N = length(x)
+    total_pairs = N * (N - 1) ÷ 2
+    ε2 = ε^2
+    hits = 0  
+    samples = min(2000, max(1, round(Int, 0.1 * total_pairs)))
+
+    # NUR @inbounds! Kein @simd wegen rand() und kein @fastmath für Integer.
+    @inbounds for _ in 1:samples
+        d = rand(rng, 1:(N-1))
+        j_start = rand(rng, 1:(N - d))
+        i_start = j_start + d
+        
+        if sq_dist(x, i_start, j_start) <= ε2
+            hits += 1
+        end
+    end
+    
+    return hits / samples
+end
+
+"""
+Zusatzfunktion 2: estimate_W 
+"""
+@inline function _sample_sojourn_time(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, N::Int) where {T<:AbstractFloat}
+    idx = rand(rng, 2:N)  
+    misses = 0
+    offset = 1
+    idx_minus_offset = idx - offset
+    
+    last_black_W = 0 
+    current_W = 0
+    max_misses = 3
+
+    @inbounds while misses <= max_misses && idx_minus_offset >= 1
+        current_W += 1
+
+        if sq_dist(x, idx, idx_minus_offset) <= ε2
+            misses = 0  
+            last_black_W = current_W 
+        else
+            misses += 1
+        end
+
+        offset += 1
+        idx_minus_offset = idx - offset
+    end
+    
+    return last_black_W
+end
+
+function estimate_W(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε::T) where {T<:AbstractFloat}
+    N = length(x)
+    ε2 = ε^2
+
+    w1 = _sample_sojourn_time(rng, x, ε2, N)
+    w2 = _sample_sojourn_time(rng, x, ε2, N)
+    w3 = _sample_sojourn_time(rng, x, ε2, N)
+    w4 = _sample_sojourn_time(rng, x, ε2, N)
+    w5 = _sample_sojourn_time(rng, x, ε2, N)
+
+    return round(Int, median((w1, w2, w3, w4, w5))) 
+end
+
+"""
+Zusatzfunktion 3: sq_dist 
+"""
+@inline function sq_dist(x::AbstractVector{<:SVector}, i::Int, j::Int)
+    # @inbounds hier hinzugefügt, damit das Auslesen aus x keine Array-Grenzen prüft
+    @inbounds p_i = x[i]
+    @inbounds p_j = x[j]
+    return sum(abs2, p_i - p_j)
+end
+
+"""
+Zusatzfunktion 4: calc_rel_change
+"""
+@inline function calc_rel_change(window)
+    # Diese Funktion ist absolut optimal für kleine Fenster (1-Pass-Algorithm)
+    mn = mx = sum_val = window[1]
+    @inbounds for i in 2:length(window)
+        val = window[i]
+        if val < mn; mn = val; end
+        if val > mx; mx = val; end
+        sum_val += val
+    end
+    avg = sum_val / length(window)
+    return (mx - mn) / avg
+end
