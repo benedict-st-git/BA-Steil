@@ -15006,6 +15006,10 @@ und dann fft und was es noch so gäbe für vorauswahl der parameterwerte (chek_l
 ### 02 h : 52 min
 # 20.10.2026
 ### 04 h : 25 min
+# 21.10.2026
+### 00 h : 31 min
+# 03.11.2026
+###  03 h : 35 min 
 # 
 ### 
 %
@@ -17177,11 +17181,1265 @@ end
 ja. dumm. bin ihc.
 ich müsste natürlihc auch noch smi_lfb anpassen und hybrid1_dep_womf und wen auch immer ich noch testen will. also teste ich in der oben genannten datei nur hybrid1_dep_wnlfb.
 
-habe also an allen systemen evaluate system wonob genutzt und in e s wonob noch smilfb auskommentiert überall.\\
+habe also an allen systemen evaluate system wonob genutzt und in e s wonob noch smilfb auskommentiert überall.
 
-klappt immer noch nicht mit mytest ausgabe.\\
+klappt immer noch nicht mit mytest ausgabe.
+\\\\
+was muss ihc anpassen, dass ich wenigstens hybrid1_dep_wnlfb mal mit my_test_ausgabe eben testen kann? ich habe das versucht mit evaluate_system_wonob umzusetzen, wei du hoffentlich sehen kannst, in dem ich darin smi_lfb auch noch ausgeklammert habe.\\
+
+Dein Setup in der my_test_big_RP_2.jl mit der Funktion evaluate_system_wonob hast du völlig richtig umgesetzt. Das Ausklammern von smi_lfb und Norberts Ansatz passt exakt, um isoliert hybrid1_dep_wnlfb zu testen.   
+Unbekannt
+
+Der Fehler liegt stattdessen in deiner my_sampling.jl innerhalb der Funktion hybrid1_dep_wnlfb. Dort verstecken sich zwei Hürden, die den Lauf abbrechen lassen:
+
+Fehler 1: UndefVarError durch lokale Scopes (Gültigkeitsbereiche)
+Du hast versucht, die Abstände der Diagonalen übersichtlicher als Variablen zu speichern (z.B. d12 = d1 - d2). Da du diese aber in einem elseif long_lines == 2 Block definierst, werden sie nach dem Ende dieses Blocks sofort wieder aus dem Speicher gelöscht. Wenn dann long_lines == 3 erreicht wird und auf d12 zugreifen will, stürzt Julia mit einem UndefVarError ab, weil die Variable dort unbekannt ist. Zudem hast du d14 ganz vergessen zu definieren.
+Lösung: Berechne die Distanzen einfach direkt in den if-Abfragen inline (z.B. abs((d1-d2) - (d2-d3))), so wie du es in hybrid1_dep_womf auch erfolgreich gemacht hast.
+
+Fehler 2: Lokaler Zufallsgenerator ignoriert den Seed
+Du rufst in Zeile 1289 rng = Xoshiro() auf. Damit erstellst du einen völlig neuen, unkontrollierten Zufallsgenerator. Wenn in deinem Testskript Random.seed!(42) aufgerufen wird, um die Benchmark-Durchläufe reproduzierbar zu machen, ignoriert hybrid1_dep_wnlfb das komplett.
+Lösung: Nutze den globalen Generator mit rng = Random.default_rng(). Er ist in Julia 1.7+ ohnehin ein extrem schneller Xoshiro-Generator und gehorcht dem seed!.\\
+
+aber ich will ja optimale zeit?!\\
+
+Dein Ansatz, redundante Berechnungen zu vermeiden und beim Zufallsgenerator jedes Nanosekündchen herauszuholen, ist absolut die richtige Denkweise für performanten Code.
+
+Hier sind die genauen Erklärungen und die optimale Lösung für beide Punkte:
+
+### Zu 1: Warum Variablen gelöscht werden & die schnellste Lösung
+
+**Warum der Fehler auftritt:**
+In Julia gilt ein strenger "lokaler Gültigkeitsbereich" (Local Scope). Wenn du eine Variable wie `d12 = d1 - d2` zum allerersten Mal *innerhalb* eines `elseif`-Blocks definierst, existiert sie nur genau bis zum Ende dieses speziellen Blocks. Wenn die Schleife weiterläuft und du in einen neuen `elseif`-Block (z. B. für `long_lines == 3`) kommst, weiß Julia nicht mehr, was `d12` ist, weil es im vorherigen Block "gestorben" ist.
+
+**Die performanteste Lösung:**
+Dein Gedanke, die Subtraktion nur einmal auszuführen, ist algorithmisch völlig korrekt. Damit die Variablen über die gesamten Schleifendurchläufe hinweg leben, musst du sie einfach **vor** der `while`-Schleife (oder dem Periodizitäts-Check) "anmelden" (mit 0 initialisieren).
+
+Es sei aber dazugesagt: Eine Integer-Subtraktion (`d1 - d2`) kostet den Prozessor ca. 1 Taktzyklus (weniger als eine halbe Nanosekunde). Der Julia-Compiler (LLVM) ist extrem schlau und erkennt solche Redundanzen beim Kompilieren oft selbst (Common Subexpression Elimination) und optimiert sie im Maschinencode weg. Dennoch ist das explizite Speichern der sauberste Weg, wenn du die absolute Kontrolle haben willst.
+
+So sieht die Anmeldung vor der Schleife aus:
+
+```julia
+    d1 = d2 = d3 = d4 = d5 = -1 
+    d12 = d23 = d34 = d45 = 0
+    d13 = d24 = d14 = d15 = d25 = d35 = 0
+
+```
+
+Und im Block aktualisierst du sie dann einfach:
+
+```julia
+                elseif long_lines == 2
+                    long_lines += 1
+                    d3 = d
+                    current -= W_soujorn
+                    d23 = d2 - d3
+                    d13 = d1 - d3
+                    if abs(d12 - d23) <= period_equidistance_error         
+                        is_periodic = true
+                        break
+                    end
+                elseif long_lines == 3
+                    long_lines += 1
+                    d4 = d
+                    current -= W_soujorn
+                    d34 = d3 - d4
+                    d24 = d2 - d4
+                    d14 = d1 - d4
+                    if (abs(d12 - d24) <= period_equidistance_error) || 
+                       (abs(d13 - d34) <= period_equidistance_error) || 
+                       (abs(d23 - d34) <= period_equidistance_error)
+                        is_periodic = true
+                        break
+                    end
+
+```
+
+### Zu 2: Maximale RNG-Performance UND Seed-Kompatibilität
+
+Du musst dich hier nicht zwischen Performance und Funktionalität entscheiden. Du hast vollkommen recht, dass `Xoshiro()` ("der kleine Becher") rasend schnell ist. Was du aber wissen musst: **Seit Julia 1.7 ist `Random.default_rng()` exakt dieser Xoshiro-Generator!**
+
+Wenn du `rng = Random.default_rng()` nutzt, hast du exakt 0,0 Performance-Verlust im Vergleich zu `rng = Xoshiro()`, weil unter der Haube buchstäblich derselbe C-Code ausgeführt wird. Der einzige Unterschied ist, dass `default_rng()` an den globalen Zustand angebunden ist und somit auf `Random.seed!(42)` aus deinem Test-Skript reagiert.
+
+**Der absolute Goldstandard für RQA-Code:**
+Wenn du maximale Performance und Flexibilität willst, übergibst du den RNG direkt in der Signatur als Keyword-Argument. Das zwingt den Compiler, den Typ des RNGs fest in die Funktion einzuweben, wodurch "Dynamic Dispatch" verhindert wird:
+
+```julia
+function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true, rng::AbstractRNG = Random.default_rng()) where {T<:AbstractFloat}
+
+```
+
+Dann löschst du die Zeile `rng = ...` im Codeblock komplett.
+
+* **Im statistischen Run:** Du rufst `hybrid1_dep_wnlfb(x, ε, M)` auf, es nimmt blitzschnell den Standard-Xoshiro.
+* **Im Seeded-Test:** Dein `Random.seed!(42)` im Test-Skript manipuliert den Standard-Xoshiro vor dem Aufruf, und du bekommst exakt reproduzierbare Werte.
+
+Möchtest du, dass ich dir die Funktion einmal komplett mit den vorgezogenen Distanzvariablen und der RNG-Signatur zusammensetze, damit du sie direkt für die Evaluierung copy-pasten kannst?\\
+
+ich denke, ich habe es korrekt implementiert. Schau einfach mal nach. ich habe dir my_sampling nochmal angehangen. als ich my_test_ausgabe ausgeführt habe, kam das:
+
+ERROR: LoadError: DivideError: integer division error
+Stacktrace:
+  [1] rem
+    @ .\int.jl:302 [inlined]
+  [2] hybrid1_dep_wnlfb(x::Base.ReinterpretArray{…}, ε::Float64, M::Int64; s::Nothing, auto_s::Bool, rng::TaskLocalRNG)
+    @ Main c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil\my_sampling.jl:2196
+  [3] hybrid1_dep_wnlfb
+    @ c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil\my_sampling.jl:1871 [inlined]
+  [4] var"##core#918"(x#911::Base.ReinterpretArray{SVector{…}, 1, Float64, Matrix{…}, true}, ε#912::Float64, M#913::Int64)
+    @ Main C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:647
+  [5] var"##sample#919"(::Tuple{…}, __params::BenchmarkTools.Parameters, __sample_ref::Base.RefValue{…}, __result_ref::Nothing)
+    @ Main C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:661
+  [6] _lineartrial(b::BenchmarkTools.Benchmark, p::BenchmarkTools.Parameters; maxevals::Int64, kwargs::@Kwargs{})
+    @ BenchmarkTools C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:230
+  [7] _lineartrial(b::BenchmarkTools.Benchmark, p::BenchmarkTools.Parameters)
+    @ BenchmarkTools C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:216
+  [8] #lineartrial#32
+    @ C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:53 [inlined]
+  [9] lineartrial
+    @ C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:52 [inlined]
+ [10] tune!(b::BenchmarkTools.Benchmark, p::BenchmarkTools.Parameters; progressid::Nothing, nleaves::Float64, ndone::Float64, verbose::Bool, pad::String, kwargs::@Kwargs{})
+    @ BenchmarkTools C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:341
+ [11] tune! (repeats 2 times)
+    @ C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:330 [inlined]
+ [12] macro expansion
+    @ C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:503 [inlined]
+ [13] evaluate_system_wonob(system_name::String, x::Base.ReinterpretArray{…}, ε::Float64, M::Int64)
+    @ Main c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil\my_test_big_RP_2.jl:165
+ [14] top-level scope
+    @ c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil\my_test_big_RP_2.jl:269
+in expression starting at c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil\my_test_big_RP_2.jl:269
+Some type information was truncated. Use `show(err)` to see complete types.\\
+
+Der Fehler DivideError: integer division error entsteht, weil die Variable W in deiner Funktion unabsichtlich überschrieben (geshadowed) wurde.   Ganz oben hast du W = 5 für das Konvergenz-Fenster definiert. Weiter unten hast du dann W = estimate_W(rng, x, ε) für das Theiler-Fenster aufgerufen. Bei stark verrauschten Systemen (wie in deiner White-Noise-Klasse) findet estimate_W oft keine zusammenhängenden schwarzen Punkte und gibt 0 zurück. Im unteren (nicht-periodischen) Teil der Funktion rechnete der Code bei der Konvergenzprüfung dann ring_idx % W – also Modulo 0, was zum Absturz führt.   Außerdem wurde ein kleiner Safeguard am Ende hinzugefügt: Falls bei reinem Rauschen wirklich gar keine einzige "active box" gefunden wird (active_box_count == 0), gibt die Funktion einfach den aktuellen Stand zurück, bevor sie durch Null teilt.Hier ist die finale, reparierte und performante Version. Die Variablen heißen nun strikt W_conv und W_theiler, und alle Distanzen (d12, d34 etc.) werden absolut sicher berechnet. Ersetze deine hybrid1_dep_wnlfb komplett hiermit:
+....\\
+
+ich verstehe nicht ganz wozu der safeguard mit active_boxs==0 sinnvoll sein soll?! geschweige denn notwendig
+
+siehst du noch optimierungsmöglichkeiten?\\
+
+ Der Safeguard `active_boxs == 0` (bzw. `active_box_count == 0`)
+
+Dieser Safeguard ist aus zwei Gründen **absolut zwingend notwendig**, auch wenn er im ersten Moment wie ein irrelevanter Edge-Case wirkt:
+
+1. **Programmatischer Absturz (Fatal Errors):**
+Wenn das System extrem "dünn" besiedelt ist (z.B. reines Gaußsches Rauschen bei sehr kleinem $\epsilon$) und in der *Pilot-Sampling-Phase* (dem systematischen Absuchen der Boxen) **kein einziger** schwarzer Punkt (Recurrence Point) gefunden wird, bleibt `active_box_count = 0`.
+Ohne Safeguard passieren direkt danach zwei fatale Fehler im Code:
+* `rand(rng, 1:active_box_count)` $\rightarrow$ Führt `rand(rng, 1:0)` aus. Das wirft einen `ArgumentError`, da die Range leer ist.
+* `(num_boxes / active_box_count)` $\rightarrow$ Division durch 0 liefert `Inf`. Das anschließende `round(Int, Inf)` wirft einen `InexactError`.
+
+
+2. **Mathematische/Physikalische Bedeutung:**
+Ein `active_box_count == 0` bedeutet, dass das Recurrence Plot (RP) bei der aktuellen Abtastung effektiv leer ist. Wenn es keine Startpunkte gibt, gibt es auch keine Linien. Der Safeguard fängt genau diese physikalische Realität ("System hat keine messbare Rekurrenz") ab und sollte direkt mit einem schnellen `return zeros(Float64, N), countAll` auslösen, anstatt Rechenzeit in einen leeren Loop zu stecken.
+
+---
+
+ Weitere Optimierungsmöglichkeiten (Code-Review)
+
+Dein Code (insbesondere `hybrid1_dep_wnlfb`) ist bereits auf einem extrem hohen Niveau. Der `1/cnt` Weighting-Trick, um den Längen-Bias ohne Allokationen durch `Set`/`visited`-Listen herauszurechnen, und der `isqrt`-Trick zur Vermeidung von Floats sind exzellent.
+
+Hier sind die letzten Mikrostelldatenschrauben, an denen du noch drehen kannst:
+
+* **1. Die versteckte Heap-Allokation bei `median()` beseitigen**
+In `estimate_W` berechnest du den Median aus einem Tuple:
+`median((w1, w2, w3, w4, w5))`
+In Julia fällt das Modul `Statistics.median` bei Tuples intern auf `sort!(collect(v))` zurück. Das `collect()` erzeugt bei *jedem* Aufruf ein neues Array auf dem Heap (Garbage Collection Overhead).
+**Optimierung:** Da du `StaticArrays` bereits nutzt, übergib stattdessen einen `SVector`, um die Allokation auf 0 zu drücken:
+`return round(Int, median(SVector(w1, w2, w3, w4, w5)))`
+* **2. SIMD-Pipeline in `sq_dist` unbedingt erhalten (Anti-Optimierung vermeiden)**
+Man könnte auf die Idee kommen, in `sq_dist` eine manuelle For-Schleife mit *Early-Stopping* einzubauen (also abbrechen, sobald `D2 > ε2`).
+**Tu das nicht!** Da du `SVector` für Vektoren mit Dimensionen wie 1 bis 3 (z.B. Lorenz) benutzt, wird `sum(abs2, p_i - p_j)` vom Compiler in wenige, extrem schnelle SIMD-Instruktionen (Single Instruction, Multiple Data) übersetzt. Ein manuelles `break` würde diesen Hardware-Vorteil zerstören (Branch-Prediction Overhead). Lass `sq_dist` exakt so, wie es ist.
+* **3. Integer-Überlauf bei `isqrt` (Zukunftssicherheit)**
+Der Ausdruck `N_const^2 - 8 * idx + 1` in der Box-Suche nutzt standardmäßig `Int64`.
+Bei $N = 10.000$ ist `N_const = 19.999`. Das Quadrat davon ist ca. $4 \cdot 10^8$. Das passt absolut problemlos in einen `Int64` (Maximum $\approx 9 \cdot 10^{18}$).
+Falls du das Skript aber jemals auf gewaltige Zeitreihen ($N > 1.000.000$) loslässt, riskierst du hier einen mathematischen Overflow. Es ist kein akutes Problem für $N=10.000$, aber du könntest es robuster machen, indem du `N_const = Int128(2N - 1)` deklarierst, falls du mal Matrizen im Terabyte-Bereich analysierst.
+* **4. Vermeidung von `undef` Werten in `det_ring**`
+Im Ringpuffer für das Konvergenzkriterium (`det_ring`, `l_ring`) initialisierst du mit `zeros(Float64, W_conv)`. Das ist bereits gut, aber achte darauf, dass `W_conv` in der Initialisierung klein genug gewählt ist. Falls `W_conv` größer ist als die Iterationen, in denen Konvergenz gecheckt wird, berechnest du `calc_rel_change` mit führenden Nullen, was den Durchschnitt `avg` stark verfälscht und Konvergenz verzögert. Hier läuft der Puffer aber erst los, wenn `history_count >= W_conv` – algorithmisch ist das also sehr sauber gelöst.\\
+
+du hast vorletzte Antwort dich auf eine ältere version von hybrid1_dep_wnlfb bezogen, hier nochmal die aktuelle.
+
+aber ich habe doch, wenn active_box_count nach der schleife um aktive boxen zu finden immer noch null ist, keine L_local und contAll werte die ich zurück geben kann oder?
+
+noch mehr optimierungen?\\
+
+Du hast **völlig recht**! Das ist ein exzellentes Auge fürs Detail und ein klassischer Edge-Case, der das Skript hart abstürzen lassen würde.
+
+Wenn in der Pilot-Phase (der Suche nach aktiven Boxen) kein einziger schwarzer Punkt gefunden wird, bleibt `active_box_count = 0`. Ohne einen Safeguard passieren direkt danach **zwei fatale Fehler**:
+
+1. `rand(rng, 1:active_box_count)` $\rightarrow$ führt `rand(rng, 1:0)` aus. Das wirft sofort einen `ArgumentError`, weil die Range leer ist.
+2. Selbst wenn es nicht crashen würde, führt am Ende `countAll * (num_boxes / active_box_count)` zu einer Division durch 0 (`Inf`), was beim `round(Int, Inf)` in einem `InexactError` endet.
+
+Physikalisch bedeutet `active_box_count == 0` schlichtweg: **Das Recurrence Plot ist bei diesem $\epsilon$ effektiv komplett leer (Weißes Rauschen / zu kleines $\epsilon$)**.
+
+**Der Fix:**
+Direkt nach der Box-Suche muss ein Early-Exit rein:
+
+if active_box_count == 0
+    # RP ist leer, wir geben das Null-Array und die bisherigen Suchen zurück
+    return L_local, countAll 
+end
+
+
+ Noch mehr Optimierungen? (Die letzten Mikrosekunden)
+
+Dein Code ist mittlerweile auf einem Level, wo wir uns am theoretischen Hardware-Limit für Single-Core-Performance bewegen. Die Allokationen im Main-Loop sind 0, und die Mathe ist auf Integer (wie bei `isqrt`) runtergebrochen.
+
+Es gibt aber tatsächlich noch **drei versteckte Dinge**, die du optimieren kannst:
+
+ 1. Die redundante Distanzprüfung (Der `offset = 0` Trick)
+
+In all deinen Line-Following-Schleifen (`hybrid_..._LFboth` und `wnlfb`) machst du aktuell Folgendes:
+Du prüfst zuerst, ob der zufällig getroffene Punkt schwarz ist:
+
+
+if sq_dist(x, i_start, j_start) > ε2
+    continue  
+end
+
+
+
+Wenn er schwarz ist, startest du die Zählung für die Diagonale nach oben:
+
+cnt = 0
+@inbounds for offset in 0:(N - i_start)
+    if sq_dist(x, i_start + offset, j_start + offset) <= ε2          
+        cnt += 1              
+
+
+Fällt dir was auf? Wenn `offset = 0` ist, prüft er exakt den Punkt `(i_start, j_start)` nochmal auf `<= ε2`! Das ist eine komplett überflüssige Distanzberechnung pro gefundenem Startpunkt. Da du das Millionen mal machst, summiert sich das.
+
+**Die Optimierung:** Starte `cnt = 1` (denn wir wissen durch den Check ja schon, dass er schwarz ist) und starte den Loop bei `offset = 1`:
+
+
+cnt = 1  # Der Startpunkt ist bereits verifiziert!
+@inbounds for offset in 1:(N - i_start)
+    if sq_dist(x, i_start + offset, j_start + offset) <= ε2
+        cnt += 1
+    else
+        break
+    end
+end
+
+
+
+ 2. Reines Integer-Scaling (Keine Floats am Ende)
+
+Ganz am Ende deines Codes berechnest du die Skalierung von `countAll`:
+
+
+countAll_correct_scaled = round(Int, countAll * (num_boxes / active_box_count))
+
+
+
+Die Division `num_boxes / active_box_count` erzeugt eine `Float64`, die mit `countAll` multipliziert und dann gerundet wird. Da `Int64` bis ca. $9 \cdot 10^{18}$ reicht, kannst du das extrem elegant und etwas schneller als reine Integer-Mathematik mit ganzzahliger Division `div` (oder `÷`) schreiben:
+
+ Zuerst multiplizieren, dann ganzzahlig dividieren. Null Floating-Point-Ops!
+
+countAll_correct_scaled = div(countAll * num_boxes, active_box_count)
+
+
+
+*(Achtung: Das geht nur so sicher, solange `countAll * num_boxes` den Wert von $9 \cdot 10^{18}$ nicht sprengt, was bei 10.000 Samples niemals passieren wird).*
+
+ 3. Versteckte Allokation in `estimate_W`
+
+In deiner Zusatzfunktion rufst du auf:
+
+
+return round(Int, median((w1, w2, w3, w4, w5))) 
+
+
+
+Wenn du ein Tupel `(w1...w5)` an die Julia-Funktion `Statistics.median` übergibst, castet Julia dieses Tupel intern per `collect()` in ein Array auf dem Heap, sortiert es und gibt den Median aus. Das kostet bei jedem Aufruf ein bisschen Garbage Collection. Da es nur 5 Werte sind, kannst du dir eine winzige Helper-Funktion bauen oder stattdessen ein `MVector` nutzen. Da `estimate_W` aber pro Algorithmus-Aufruf nur **ein einziges Mal** läuft, ist das eher Kosmetik für das Profiler-Gewissen als ein echter Bottleneck.
+
+ Zusammenfassung der Architektur-Änderung in `wnlfb`:
+
+ ... (Box-Suche) ...
+
+if active_box_count == 0
+    return L_local, countAll
+end
+
+current_box = 0
+while count < M
+    # ... (Randomisierung) ...
+
+    if sq_dist(x, i_start, j_start) > ε2
+        continue
+    end
+
+    # Opt 1: Redundanz entfernt
+    cnt = 1  
+    @inbounds for offset in 1:(N - i_start) 
+        if sq_dist(x, i_start + offset, j_start + offset) <= ε2
+            cnt += 1
+        else
+            break
+        end
+    end
+    @inbounds for offset in 1:(j_start-1) 
+        if sq_dist(x, i_start - offset, j_start - offset) <= ε2
+            cnt += 1
+        else
+            break
+        end
+    end
+
+    # ... (Rest der Längen-Logik mit cnt) ...
+end
+
+ Opt 2: Integer Math
+countAll_correct_scaled = div(countAll * num_boxes, active_box_count)
+return L_local, countAll_correct_scaled
 
 \\
+
+zum safeguard: 
+also einfach leere countall und L_local zurückgeben, da der RP quasi leer sein muss, wenn keine einzige box aktiviert worden ist, also einen einzigen schwarzen punkt im random sampling hergab.
+
+zu 3. aus der vorletzten nachricht:
+wie genau meinst du das? wo und worin genau liegt die optimierung?
+
+und hast du noch mehr optimierungen? \\
+
+ Details zum `isqrt`-Integer-Überlauf (`Int128`)
+
+Die genaue Stelle in der Funktion `hybrid1_dep_wnlfb` betrifft die Umrechnung des linearen Sampling-Index `idx` in die Diagonale `d`:
+
+```julia
+N_const = 2N - 1
+d = (N_const - isqrt(N_const^2 - 8 * idx + 1)) ÷ 2 + 1
+
+```
+
+ Wo und worin genau liegt das Problem?
+
+1. **Der kritische Term:** Der Ausdruck $N_{\text{const}}^2 = (2N - 1)^2$ wird standardmäßig in 64-Bit-Ganzzahlen (`Int64`) ausgewertet.
+2. **Die Überlaufgrenze:** Das Maximum eines vorzeichenbehafteten `Int64` liegt bei $2^{63} - 1 \approx 9{,}22 \cdot 10^{18}$.
+3. **Der mathematische Breakpoint:** Sobald $N_{\text{const}} > \sqrt{2^{63} - 1} \approx 3{,}037 \cdot 10^9$ wird (das entspricht einer Zeitreihenlänge von $N \ge 1{,}518 \cdot 10^9$), ist $N_{\text{const}}^2 > 9{,}22 \cdot 10^{18}$.
+4. **Folge ohne Fix:** Julia löst bei Integer-Operationen aus Performancegründen keine automatische Fehlerbedingung aus. Die Zahl läuft im Zweierkomplement negativ über ("Wrap-around"). Das `isqrt` erhält dadurch eine negative Zahl und wirft einen `DomainError` oder berechnet völlig falsche Wurzelwerte.
+
+ Worin liegt die Optimierung/Lösung?
+
+Es handelt sich nicht um eine Laufzeitoptimierung (Geschwindigkeit), sondern um eine **Robustheits- und Typsicherheits-Optimierung (Type Promotion)**.
+
+Durch die explizite Deklaration:
+
+```julia
+N_const = Int128(2N - 1)
+
+```
+
+rechnet Julia das Quadrat und die Subtraktion in 128-Bit-Arithmetik ($\text{Maximum} \approx 1{,}7 \cdot 10^{38}$).
+
+* $N$ kann nun theoretisch bis zu $10^{18}$ Elemente lang sein, ohne dass die Index-Transformation abbricht.
+* Da `isqrt` den Wert sofort wieder auf die Größenordnung von $N$ schrumpft, kann das Endergebnis für $d$ verlustfrei als normales `Int` weiterverarbeitet werden, ohne die CPU-Pipeline in den nachfolgenden Schleifen zu verlangsamen.
+
+---
+
+ Weitere konkrete Code-Optimierungen für `hybrid1_dep_wnlfb`
+
+Nach genauer Durchsicht deines aktuellen Codes in `my_sampling_10.jl` gibt es noch vier Stellen, an denen du messbare Mikrosekunden und Allokationen einsparen kannst:
+
+ 1. Doppelte Distanzberechnung beim Linien-Tracking eliminieren
+
+In der Hauptschleife von `hybrid1_dep_wnlfb` prüfst du zuerst, ob der Startpunkt schwarz ist. Direkt danach startet deine `offset`-Schleife bei `0`, wodurch exakt derselbe Abstand ein zweites Mal berechnet wird:
+
+```julia
+# Bisheriger Code:
+if sq_dist(x, i_start, j_start) > ε2
+    continue  # 1. Distanzberechnung
+end
+
+cnt = 0
+@inbounds for offset in 0:(N - i_start)  # offset = 0 berechnet sq_dist(x, i_start, j_start) NOCHMAL!
+    if sq_dist(x, i_start + offset, j_start + offset) <= ε2  # 2. Distanzberechnung
+        cnt += 1
+...
+
+```
+
+**Optimierung:** Da der Startpunkt an dieser Stelle bereits als schwarz bestätigt ist, setze `cnt = 1` und starte die Abfrageschleife erst bei `offset = 1`. Das spart bei jedem Treffer genau 1 Distanzberechnung:
+
+```julia
+if sq_dist(x, i_start, j_start) > ε2
+    continue
+end
+
+cnt = 1  # Startpunkt ist bereits verifiziert!
+@inbounds for offset in 1:(N - i_start)
+    if sq_dist(x, i_start + offset, j_start + offset) <= ε2
+        cnt += 1
+    else
+        break
+    end
+end
+@inbounds for offset in 1:(j_start - 1)
+    if sq_dist(x, i_start - offset, j_start - offset) <= ε2
+        cnt += 1
+    else
+        break
+    end
+end
+
+```
+
+*(Gilt sowohl für den `is_periodic`-Zweig als auch für den `else`-Zweig).*
+
+---
+
+ 2. Heap-Allokation in `estimate_W` verhindern
+
+In deiner Helper-Funktion `estimate_W` übergibst du ein Standard-Julia-Tupel an `Statistics.median`:
+
+```julia
+# Bisher:
+return round(Int, median((w1, w2, w3, w4, w5)))
+
+```
+
+Standard-Julia-Tupel haben keine spezialisierte `median`-Methode und fallen intern auf `median(collect(tuple))` zurück. `collect()` allokiert bei jedem Aufruf ein kurzes Array auf dem Heap.
+
+**Optimierung:** Nutze stattdessen `StaticArrays.SVector`:
+
+```julia
+return round(Int, median(SVector(w1, w2, w3, w4, w5)))
+
+```
+
+`SVector` liegt komplett auf dem Stack und allokiert genau **0 Bytes**.
+
+---
+
+ 3. Reine Integer-Skalierung statt Floating-Point-Runden
+
+Am Ende von `hybrid1_dep_wnlfb` rechnest du:
+
+```julia
+# Bisher:
+countAll_correct_scaled = round(Int, countAll * (num_boxes / active_box_count))
+
+```
+
+Die Division `num_boxes / active_box_count` konvertiert die Werte in `Float64`, multipliziert und rundet sie danach wieder zurück in ein `Int`.
+
+**Optimierung:** Verwende direkte Integer-Multiplikation und ganzzahlige Division `div` (bzw. `÷`):
+
+```julia
+countAll_correct_scaled = div(countAll * num_boxes, active_box_count)
+
+```
+
+Das vermeidet den Umweg über FPU-Register (Floating Point Unit) vollständig.
+
+---
+
+ 4. Vorab-Größenanpassung für das `active_boxs`-Vector Trimming
+
+Du erzeugst `active_boxs` über `Vector{Int}(undef, num_boxes)` und füllst es bis `active_box_count`. Das ist bereits allokationsfrei während des Suchvorgangs.
+
+Falls du dieses Array im Verlauf des Programms weiterverwendest oder zurückgibst, kannst du am Ende der Pilot-Phase mit `resize!(active_boxs, active_box_count)` ungenutzten Speicher sofort freigeben, ohne ein neues Array allokieren zu müssen.\\
+
+ZU:
+ Zuerst multiplizieren, dann ganzzahlig dividieren. Null Floating-Point-Ops!
+countAll_correct_scaled = div(countAll * num_boxes, active_box_count)
+
+(Achtung: Das geht nur so sicher, solange countAll * num_boxes den Wert von $9 \cdot 10^{18}$ nicht sprengt, was bei 10.000 Samples niemals passieren wird).
+
+haben wir das nicht gelöst mit der anpassung von N_const?
+
+noch mehr optimierungen?\\
+
+Nein, die Anpassung von `N_const` betrifft eine **andere Stelle im Code**:
+
+* **Wo `N_const = Int128(2N - 1)` wirkt:** Es schützt ausschließlich die **Index-Transformation** `isqrt(N_const^2 - 8 * idx + 1)` innerhalb der Sampling-Schleife vor einem Überlauf von $N_{\text{const}}^2$ bei sehr langen Zeitreihen ($N > 3 \cdot 10^9$).
+* **Wo `countAll * num_boxes` steht:** Das steht am Ende der Funktion bei der **Skalierung des Gesamtzählers**:
+
+$$\text{countAll\_correct\_scaled} = \text{div}(\text{countAll} \cdot \text{num\_boxes}, \text{active\_box\_count})$$
+
+
+
+Hier taucht `N_const` überhaupt nicht auf. `countAll` und `num_boxes` sind eigenständige 64-Bit `Int`-Variablen. Solange deren Produkt unter $9 \cdot 10^{18}$ bleibt (was selbst bei $10^8$ Suchversuchen und $10^8$ Boxen mit $10^{16}$ weit darunter liegt), ist es absolut sicher. Möchtest du es auch dort zu 100 % mathematisch unkaputtbar machen, müsstest du explizit `div(Int128(countAll) * num_boxes, active_box_count)` schreiben.
+
+---
+
+### Weitere gezielte Optimierungen für `hybrid1_dep_wnlfb`
+
+#### 1. Redundante Distanzberechnung im Sampling-Loop eliminieren
+
+Sobald ein Startpunkt `(i_start, j_start)` als schwarz verifiziert ist (`sq_dist(...) <= ε2`), startet die Schleife im aktuellen Code bei `offset = 0` und berechnet dieselbe Distanz sofort ein zweites Mal.
+
+**Optimierung:** Starte `cnt = 1` und lasse die Schleifen erst ab `offset = 1` laufen:
+
+```julia
+# Vor der Schleife ist bereits verifiziert: sq_dist(x, i_start, j_start) <= ε2
+
+cnt = 1  # Startpunkt zählt bereits als 1
+@inbounds for offset in 1:(N - i_start)
+    if sq_dist(x, i_start + offset, j_start + offset) <= ε2
+        cnt += 1
+    else
+        break
+    end
+end
+@inbounds for offset in 1:(j_start - 1)
+    if sq_dist(x, i_start - offset, j_start - offset) <= ε2
+        cnt += 1
+    else
+        break
+    end
+end
+
+```
+
+*(Das spart bei **jedem** einzelnen Treffer im Haupt-Sampling-Loop genau 1 Distanzberechnung).*
+
+#### 2. Speichereffizientes Trimming von `active_boxs`
+
+Du erzeugst `active_boxs` vorab als Vektor fester Länge: `active_boxs = Vector{Int}(undef, num_boxes)`.
+Nach der Pilotphase (Aufspüren aktiver Boxen) ist das Vektor-Ende ab `active_box_count + 1` ungenutzt.
+
+**Optimierung:** Kürze den Vektor nach der Pilot-Schleife mit `resize!`:
+
+```julia
+resize!(active_boxs, active_box_count)
+
+```
+
+Das gibt den ungenutzten Speicher sofort frei und hält das Array im L1/L2-Cache der CPU kompakter, wenn danach `rand(rng, active_boxs)` aufgerufen wird.
+
+#### 3. Zero-Allocation `median` in `estimate_W`
+
+In `estimate_W` wird `median((w1, w2, w3, w4, w5))` aufgerufen. Da Julia für normale Tuples kein spezialisiertes `median` besitzt, fällt es intern auf `collect()` zurück (erzeugt ein temporäres Array auf dem Heap).
+
+**Optimierung:**
+
+```julia
+return round(Int, median(SVector(w1, w2, w3, w4, w5)))
+
+```
+
+`SVector` bleibt vollständig auf dem Stack und verursacht exakt 0 Heap-Allokationen.
+
+#### 4. Division-by-Zero Absicherung in `calc_rel_change`
+
+Falls in den ersten $W_{\text{conv}}$ Iterationen noch keine Linien der Länge $\ge 2$ gefunden wurden, ist `sum_n2_L = 0.0` und somit `avg = 0.0`. Das führt in `calc_rel_change` zu einer $0/0$-Division (`NaN`). In Julia ist `NaN < tol` immer `false`, weshalb der Code zwar nicht falsch abbricht, aber eine explizite Prüfung vermeidet unnötige `NaN`-Arithmetik in der CPU:
+
+
+@inline function calc_rel_change(window)
+    mn = mx = sum_val = window[1]
+    @inbounds for i in 2:length(window)
+        val = window[i]
+        if val < mn; mn = val; end
+        if val > mx; mx = val; end
+        sum_val += val
+    end
+    avg = sum_val / length(window)
+    return avg == 0.0 ? 1.0 : (mx - mn) / avg
+end \\
+
+4. Vorab-Größenanpassung für das active_boxs-Vector Trimming
+Du erzeugst active_boxs über Vector{Int}(undef, num_boxes) und füllst es bis active_box_count. Das ist bereits allokationsfrei während des Suchvorgangs.
+
+Falls du dieses Array im Verlauf des Programms weiterverwendest oder zurückgibst, kannst du am Ende der Pilot-Phase mit resize!(active_boxs, active_box_count) ungenutzten Speicher sofort freigeben, ohne ein neues Array allokieren zu müssen.
+
+verstehe ich nicht ganz, wie genau mache ich das und was brignt das? sollte ich das tun?
+
+außerdem schriebst du:
+Hier taucht N_const überhaupt nicht auf. countAll und num_boxes sind eigenständige 64-Bit Int-Variablen. Solange deren Produkt unter $9 \cdot 10^{18}$ bleibt (was selbst bei $10^8$ Suchversuchen und $10^8$ Boxen mit $10^{16}$ weit darunter liegt), ist es absolut sicher. Möchtest du es auch dort zu 100 % mathematisch unkaputtbar machen, müsstest du explizit div(Int128(countAll) * num_boxes, active_box_count) schreiben.
+und ich würde das gerne übernehmen um sicher zu sein, auch für riesen Zeitreihen, aber kostet mich das ZEit? vor allem, wenn es eben eigentlich nur kleinere N zeitreihen sind?
+
+schau, ich habe fast alles implementiert. gibt es noch tricks und optimierungen, die sinnvolll zu verwenden sind um auf alle RPs von allen möglichen systemen optimal vorbereitet zu sein in jedem fall? \\
+
+### 1. Zu `resize!` (Speicherfreigabe)
+
+**Wie du es machst:**
+Du würdest einfach direkt nach dem Schließen der Pilot-Schleife (also bevor `if active_box_count == 0` kommt) schreiben:
+`resize!(active_boxs, active_box_count)`
+
+**Was es bringt und ob du es tun solltest:**
+Ich habe mir deinen aktuellen Code noch einmal ganz genau angesehen. Du hast das Problem bereits extrem elegant auf andere Weise gelöst, nämlich hier:
+`current_box = active_boxs[rand(rng, 1:active_box_count)]`
+Da du den Zufallsgenerator strikt auf den Bereich `1:active_box_count` einschränkst, greift der Code ohnehin niemals auf die leeren/undefinierten Felder im hinteren Teil des Arrays zu.
+**Fazit:** Du *musst* es für die Performance in der Schleife nicht tun. Es ist nur relevant, falls du `active_boxs` am Ende der Funktion per `return` an den User ausgeben willst, damit das Array keinen "Datenmüll" am Ende mitschleppt. Für die reine Geschwindigkeit in der Funktion kannst du es weglassen, dein Ansatz ist bereits absolut optimal.
+
+---
+
+### 2. Zu `Int128` (Robustheit vs. Geschwindigkeit)
+
+Hier müssen wir strikt trennen, *wo* das `Int128` steht, denn das macht einen gewaltigen Unterschied:
+
+**A) Am Ende der Funktion (Einmalige Ausführung):**
+
+```julia
+countAll_correct_scaled = div(Int128(countAll) * num_boxes, active_box_count)
+
+```
+
+Das passiert exakt *einmal* ganz am Schluss. Das kostet dich **0,0000001 Millisekunden**. Unbedingt drin lassen! Es ist der perfekte mathematische Schutzschild für riesige Hochrechnungen.
+
+**B) Innerhalb der Sampling-Schleife (Millionenfache Ausführung):**
+
+```julia
+N_const = Int128(2N - 1)
+d = (N_const - isqrt(N_const^2 - 8 * idx + 1)) ÷ 2 + 1
+
+```
+
+Hier hat es einen messbaren Preis. 128-Bit-Arithmetik (insbesondere die Wurzel `isqrt`) ist auf normalen 64-Bit-CPUs etwas langsamer, da sie über mehrere Register verteilt berechnet werden muss. In einer Schleife, die Millionen Mal läuft, kostet das spürbar Laufzeit.
+**Die Lösung:** Wirf das `Int128` in der Schleife wieder raus. Ein normales `Int64` läuft erst bei $N \ge 1.500.000.000$ (1,5 Milliarden Datenpunkte) über. Da dein Skript bei so großen Arrays vorher den RAM (hunderte Gigabyte) sprengen würde, bist du mit `N_const = 2N - 1` für absolut alle denkbaren RPs mathematisch auf der sicheren Seite.
+
+---
+
+### 3. Die ultimativen Tricks für universelle Robustheit
+
+Ich habe deinen Skript-Entwurf analysiert und da sind zwei extrem wichtige Punkte, um auf *alle* möglichen Systeme vorbereitet zu sein. Einer davon ist ein statistischer Bug, der sich eingeschlichen hat.
+
+#### Trick 1: Der Statistik-Bug im Periodizitäts-Sampling
+
+In deinem `is_periodic`-Block hast du die Wurzel weggelassen und stattdessen das hier geschrieben:
+
+```julia
+d = rand(rng, 1:(N-1))
+j_start = rand(rng, 1:(N - d))
+i_start = j_start + d
+
+```
+
+Das ist **nicht gleichverteilt**! Es zieht eine zufällige Diagonale und darauf einen zufälligen Punkt. Das Problem: Die längste Diagonale hat $N-1$ Punkte, die kürzeste in der Ecke hat nur $1$ Punkt. Da beide Diagonalen die gleiche Chance haben, gezogen zu werden, ist die Wahrscheinlichkeit, dass du die winzige Ecke triffst, $N-1$ mal höher als ein Punkt auf der Hauptdiagonale. Du gewichtest kurze Diagonalen massiv über!
+
+**Die geniale (und schnellere) Alternative ohne Wurzel:**
+Zieh einfach zwei zufällige, voneinander unabhängige Koordinaten aus dem gesamten RP. Ist die eine größer als die andere, hast du automatisch dein Paar im richtigen Dreieck gefunden. Sind sie gleich (LOI), ziehst du neu.
+
+```julia
+# Ersetzt den Block im is_periodic Teil (Uniform Sampling):
+u1 = rand(rng, 1:N)
+u2 = rand(rng, 1:N)
+
+if u1 == u2
+    continue  # Wir ignorieren die LOI
+end
+
+# i ist immer die größere Zahl, j die kleinere (Oberes Dreieck)
+i_start = u1 > u2 ? u1 : u2
+j_start = u1 > u2 ? u2 : u1
+
+```
+
+Das ist statistisch 100 % perfekt gleichverteilt auf alle existierenden Paare, kommt komplett ohne `idx`, ohne `isqrt` und ohne Floats aus und ist rasend schnell. (Dieser Trick klappt aber nur bei reinem Uniform Sampling, nicht beim Box-Stratified-Sampling, da dort die Box-Zugehörigkeit gebraucht wird!).
+
+#### Trick 2: Der "Circuit Breaker" (Schutz vor Endlosschleifen)
+
+Stell dir vor, ein User (oder eine Automatisierung) übergibt dein Skript an eine Zeitreihe, die fast nur aus weißem Rauschen besteht ($\epsilon$ sehr klein). Das System ist extrem spärlich. Es gibt im gesamten riesigen RP vielleicht insgesamt nur 3.000 Linien.
+Wenn du die Funktion mit `M = 10_000` aufrufst, wird `while count < M` zu einer **Endlosschleife**, die den Rechner für immer einfriert, weil das RP nicht genug Linien hergibt, um die geforderte Quote zu erfüllen.
+
+**Die Lösung:** Du brauchst ein maximales Limit an Suchversuchen, an dem das System aufgibt und den bisherigen Stand zurückgibt.
+Schreibe ganz am Anfang der Funktion:
+
+```julia
+max_searches = max(M * 200, total_pairs * 2) 
+
+```
+
+Und in deine `while count < M` Schleifen schreibst du direkt als Erstes:
+
+```julia
+if countAll > max_searches
+    # Notausstieg: Das RP gibt nicht genug Linien für das geforderte M her.
+    break
+end
+
+```
+
+Damit machst du den Algorithmus komplett robust gegen fehlerhafte Parametrisierungen, ungünstige $\epsilon$-Werte oder extrem leere Recurrence Plots.\\
+
+aber brauche ich das in div(....) dann wenn ich es bei N_const weg lasse? ich denke, dann stürzt der code doch eh schon vorher ab und das int128 in div in der rückgabe wird eh nicht mehr relevant?!
+
+habe wieder alles implementiert. noch mehr krasse tricks und optimierungen?\\
+
+Dein Gedankengang bezüglich des Absturzes ist fast richtig, übersieht aber ein wichtiges mathematisches Detail, weshalb das `Int128` am Ende bei `div(...)` **zwingend drinbleiben muss**, während du es bei `N_const` gefahrlos weglassen kannst.
+
+Hier ist die Mathematik dahinter:
+
+* **Warum `N_const` nicht überläuft:** In der Schleife rechnest du $N_{\text{const}}^2$. Ein normales 64-Bit-Integer läuft bei ca. $9{,}2 \cdot 10^{18}$ über. Das passiert erst, wenn $N > 1.000.000.000$ (eine Milliarde Datenpunkte). Eine so gewaltige Zeitreihe würde im Arbeitsspeicher (selbst als reine SVector-Reihe) ohnehin jeden normalen Rechner crashen, lange bevor die Schleife läuft. Hier ist `Int64` also zu 100 % sicher.
+* **Warum `div(...)` extrem schnell überlaufen kann:** Am Ende rechnest du `countAll * num_boxes`. Angenommen, du hast ein moderates $N = 100.000$ (was problemlos in den RAM passt). Das ergibt `total_pairs` $\approx 5 \cdot 10^{9}$. Wenn der User nun ein extrem großes $M$ (z. B. $M = 10.000.000$) fordert, kann `num_boxes` (abgeleitet von $M$) bis zu $50.000.000$ betragen. Wenn das System sehr dicht ist, kann `countAll` durch den Notausstieg `max_searches` bei z. B. $2.000.000.000$ landen.
+Das Produkt $50.000.000 \cdot 2.000.000.000 = 10^{17}$. Das ist verdammt nah am Überlauf. Wenn $M$ noch etwas größer wird, knallt es beim Skalieren, **obwohl** $N$ klein genug war, um nicht abzustürzen! Da das `Int128` am Ende exakt *einmal* aufgerufen wird, kostet es absolut Null Laufzeit und ist deine ultimative Versicherung gegen absurde User-Parameter.
+
+---
+
+### Die nächsten krassen Optimierungen (Die Mathe-Tricks)
+
+Dein Code ist architektonisch extrem weit vorn. Jetzt geht es nicht mehr um Schleifen-Layouts, sondern um **algorithmische und mathematische Reduktion**.
+
+#### Trick 1: Die magische "Weight"-Kürzung (Der mathematische Durchbruch)
+
+Schau dir an, was du bei jedem gefundenen Punkt aktuell rechnest:
+
+```julia
+weight = 1/cnt
+# ...
+sum_n_L  += cnt * weight
+sum_n2_L += cnt >= 2 ? cnt * weight : 0.0
+sum_L2   += cnt >= 2 ? weight : 0.0
+
+```
+
+Fällt dir etwas auf? `cnt * weight` ist mathematisch **immer exakt 1.0**, denn `cnt * (1 / cnt) = 1`.
+Das bedeutet zwei Dinge:
+
+1. `sum_n2_L` erhöht sich bei Linien $\ge 2$ einfach nur um `1.0`. Du musst nicht multiplizieren.
+2. `sum_n_L` erhöht sich bei *jeder* gefundenen Linie immer exakt um `1.0`. Da du gleichzeitig `count += 1` rechnest, ist **`sum_n_L` zu jedem Zeitpunkt exakt identisch mit `count`!**
+
+Du kannst die gesamte Variable `sum_n_L` aus deinem Code löschen! Das spart FPU-Register-Updates.
+
+**So sieht der Block maximal optimiert aus:**
+
+```julia
+weight = 1.0 / cnt
+L_local[cnt] += weight
+count += 1  
+
+sum_n2_L += cnt >= 2 ? 1.0 : 0.0
+sum_L2   += cnt >= 2 ? weight : 0.0
+
+if count % K == 0 && count >= min_samples
+    det_val = sum_n2_L / count   # sum_n_L ist einfach count!
+    l_val   = sum_n2_L / sum_L2
+    # ...
+
+```
+
+#### Trick 2: Branchless Integer-Bedingungen (If-Else eliminieren)
+
+In der CPU sind `if`-Statements (oder ternäre Operatoren wie `? :`) ein Risiko für sogenannte "Branch Prediction Misses". Da du `cnt >= 2` millionenfach abfragst, kannst du den booleschen Wahrheitswert in Julia (der im RAM als `0` oder `1` liegt) direkt mathematisch ausnutzen.
+
+```julia
+# Wahr (true) wird in der Mathematik zu 1, Falsch (false) zu 0
+is_long = cnt >= 2
+sum_n2_L += is_long         # += 1, wenn wahr; += 0, wenn falsch (Kein Branch!)
+sum_L2   += is_long * weight 
+
+```
+
+*Das reduziert die Operationen auf pure Mathematik ohne logische CPU-Sprünge.*
+
+#### Trick 3: Perfektionierung des Uniform Sampling (Du warst schon auf dem richtigen Weg)
+
+In deinem Code für den `is_periodic`-Block hast du folgendes eingebaut:
+
+```julia
+u1 = rand(rng, 1:N)
+u2 = rand(rng, 1:N)
+if u1 == u2; continue; end
+i_start = u1 > u2 ? u1 : u2
+j_start = u1 > u2 ? u2 : u1
+
+```
+
+Das ist **absolut genial** und die schnellste, sicherste Methode, völlig gleichverteilte Punkte im oberen Dreieck zu generieren, komplett ohne Wurzelziehen (`isqrt`). Du hast den Statistik-Bug damit bereits selbst gelöst! Behalte diesen Block für alle reinen Zufalls-Samplings (außer beim Box-Sampling, da dort die Box-Zugehörigkeit den linearen `idx` erzwingt).
+
+Um hier auch noch den ternären Operator (`? :`) zu sparen, der in der CPU minimal Zeit kostet, nutzt man die eingebauten und extrem optimierten Min/Max-Funktionen, die auf Assembler-Ebene (CMOV-Befehle) laufen:
+
+```julia
+u1 = rand(rng, 1:N)
+u2 = rand(rng, 1:N)
+if u1 == u2
+    continue
+end
+# minmax gibt das Tupel (kleinste, größte) zurück
+j_start, i_start = minmax(u1, u2) 
+
+```
+
+#### Zusammenfassung des perfekten Updates im Main-Loop:
+
+Anstatt teurer Multiplikationen und logischer Abfragen reduzierst du das Update nach dem Linien-Zählen auf diese Zeilen:
+
+# ... (Linienverfolgung beendet) ...
+
+if cnt > 0 
+    weight = 1.0 / cnt
+    L_local[cnt] += weight
+    count += 1
+    
+    is_long = cnt >= 2
+    sum_n2_L += is_long
+    sum_L2   += is_long * weight
+    
+    if count % K == 0 && count >= min_samples
+        det_val = sum_n2_L / count
+        l_val   = sum_n2_L / sum_L2
+        
+        # ... (Ring-Buffer Update) ...\\
+
+
+Kann ich das sampling in den boxen zum aktivieren noch verbessern? was ist mit dem sampling zum linien finden in den boxen?
+
+was geht hier schief, wenn ich my_test_big_RP_2_opti laufen lasse?
+
+
+======================================================================
+ SYSTEM (WONOB): KLASSE 1: CHAOS (ROESSLER SYSTEM)
+======================================================================
+ERROR: BoundsError: attempt to access Tuple{Int64} at index [2]
+Stacktrace:
+ [1] indexed_iterate
+   @ .\tuple.jl:162 [inlined]
+ [2] WARNING: Detected access to binding `Main.get_hist_diagonal_woRP` in a world prior to its definition world.
+  Julia 1.12 has introduced more strict world age semantics for global bindings.
+  !!! This code may malfunction under Revise.
+  !!! This code will error in future versions of Julia.
+Hint: Add an appropriate `invokelatest` around the access to this binding.
+To make this warning an error, and hence obtain a stack trace, use `julia --depwarn=error`.
+get_hist_diagonal_woRP(x::Base.ReinterpretArray{SVector{3, Float64}, 1, Float64, Matrix{Float64}, true}, ε::Float64)
+   @ Main c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Norberts_RQA_Code\RPLineLengths.jl:79
+ [3] WARNING: Detected access to binding `Main.evaluate_system_wonob` in a world prior to its definition world.
+  Julia 1.12 has introduced more strict world age semantics for global bindings.
+  !!! This code may malfunction under Revise.
+  !!! This code will error in future versions of Julia.
+Hint: Add an appropriate `invokelatest` around the access to this binding.
+To make this warning an error, and hence obtain a stack trace, use `julia --depwarn=error`.
+evaluate_system_wonob(system_name::String, x::Base.ReinterpretArray{…}, ε::Float64, M::Int64)
+   @ Main c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil\my_test_big_RP_2_opti.jl:150
+ [4] top-level scope
+   @ c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil\my_test_big_RP_2_opti.jl:269
+Some type information was truncated. Use `show(err)` to see complete types.\\
+
+ok, kannst du my_test_big_RP_2_opti.jl und my_test_big_RP_2.jl zusammenfügen und so optimieren, dass die momentan wichtigsten versionen, also smi_lfb normal hybrid1_dep_wnflb und norberts standard get_hist_diagonal_sampled und get_hist_diagonal_woRP, getestet werden, wobei hybrid1_dep_wnlfb an den optimierten SVector systemen in den dimensionen von den zeitreihen x in (phasenraumdimensionen,N) arbeitet und die anderen an dem alten format mit x in (N,phasenraumdimensionen) und norberts gethistdiagonalsampled gar nicht an den sehr periodischen systemen ohne ausreichend anfangspunkte (der periodic harm osc resonanz und mit inkommensurabler abtastung so kleiner epsilon, dass sie kaum zu abrissen der diagonalen führen kann).
+und das alles in best practice und schön übersichtlich und möglichst kurz optimiert. im besten fall bruache ich keine zwei funktionen?! aber da fehlt mir gerade die kompetenz.\\
+
+optimiere noch weiter falls möglich bitte.
+
+außerdem: 
+die ausgabe:
+--- BASELINE: woRP ---
+Runtime: 489.33 ms | Allocs: 3 | Mem: 78.19 KiB
+RR: 0.0828 | DET: 0.9984 | L: 23.7765 | ENTR: 3.8649
+soll bitte für jede metrische größe einen zeilenumbruch haben.
+
+zudem gibt es einen fehler:
+>>> EVALUATING: Norbert (Standard) <<<
+ERROR: MethodError: no method matching get_hist_diagonal_sampled(::Matrix{Float64}, ::Float64, ::Int64)
+The function `get_hist_diagonal_sampled` exists, but no method is defined for this combination of argument types.
+
+Closest candidates are:
+  get_hist_diagonal_sampled(::AbstractVector{<:SVector{Dim, T}}, ::T, ::Int64) where {Dim, T<:AbstractFloat}
+   @ Main c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Norberts_RQA_Code\RPLineLengths.jl:146
+
+im besten fall muss ich an norberts original code nichts ändern. geht das oder wie lautet die optimale lösung?
+
+kann ich das :
+open("Unfassbare_optimierungen_an_hybrid1_dep_wnlfb.txt", "w") do io
+    redirect_stdout(io) do
+        include("my_test_big_RP_2_ultra_opti.jl")
+    end
+end
+
+weiter so benutzen, oder ist das auch zu optimieren? falls ja, wie?\\
+
+### Grund für den `MethodError` & Die Lösung
+
+Norberts Originalfunktion `get_hist_diagonal_sampled` ist für `Vector{SVector}` implementiert und nicht für eine `Matrix{Float64}`. In der `methods`-Liste war bei Norbert fälschlicherweise `:mat` als Datentyp angegeben.
+
+Wenn du `:mat` zu **`:svec`** änderst, übergibt die Evaluierungsfunktion automatisch das bereits konvertierte `x_svec`. **Du musst an Norberts Originalcode somit keine einzige Zeile ändern!**
+
+---
+
+### Optimiertes Skript (Kopierfertig)
+
+In diesem Skript ist der `MethodError` behoben, die Baseline-Ausgabe um die gewünschten Zeilenumbrüche erweitert und der Monte-Carlo-Loop mit `@inbounds` nochmals beschleunigt.
+
+```julia
+using BenchmarkTools
+using Random
+using Statistics
+using DifferentialEquations
+using DelayEmbeddings
+using StaticArrays
+
+include("../Norberts_RQA_Code/RPLineLengths.jl")
+include("my_sampling.jl")
+
+# ====================================================================
+# 1. High-Performance Utility: Matrix (N, D) -> Vector{SVector{D, Float64}}
+# ====================================================================
+@inline function to_svec(x_mat::Matrix{Float64})
+    D = size(x_mat, 2)
+    # Transponieren stellt sicher, dass Koordinaten spaltenweise zusammenhängen (Fortran-Layout)
+    return reinterpret(reshape, SVector{D, Float64}, copy(transpose(x_mat)))
+end
+
+# ====================================================================
+# 2. Zentrale Evaluierungs-Funktion (Single-Point-of-Truth Benchmark)
+# ====================================================================
+function evaluate_system(
+    system_name::String, 
+    x_mat::Matrix{Float64}, 
+    ε::Float64, 
+    M::Int; 
+    run_norb::Bool = true,
+    n_stat::Int = 1000
+)
+    println("\n" * "="^72)
+    println(" SYSTEM: $system_name")
+    println("="^72)
+    
+    N_val = size(x_mat, 1)
+    total_pairs = round(Int, N_val * (N_val - 1) / 2)
+
+    # Reinterpretation für SVector-basierte Hybride (0 Extra-Allokation bei Zugriff)
+    x_svec = to_svec(x_mat)
+
+    # --- Baseline (woRP) ---
+    histL_woRP = get_hist_diagonal_woRP(x_mat, ε)
+    rqa_woRP   = rqa(histL_woRP, total_pairs)
+    b_woRP     = @benchmark get_hist_diagonal_woRP($x_mat, $ε)
+
+    t_woRP = round(median(b_woRP.times) / 1e6, digits=2)
+    println("\n--- BASELINE: woRP ---")
+    println("Runtime: $t_woRP ms")
+    println("Allocs:  $(b_woRP.allocs)")
+    println("Mem:     $(round(b_woRP.memory / 1024, digits=2)) KiB")
+    println("RR:      $(round(rqa_woRP[1], digits=4))")
+    println("DET:     $(round(rqa_woRP[2], digits=4))")
+    println("L:       $(round(rqa_woRP[3], digits=4))")
+    println("ENTR:    $(round(rqa_woRP[4], digits=4))")
+
+    # --- Zu testende Methoden ---
+    # FEHLERBEHOBEN: Norbert erwartet :svec statt :mat
+    methods = [
+        ("Norbert (Standard)",                   :svec, run_norb, data -> get_hist_diagonal_sampled(data, ε, M)),
+        ("SMI LFBOTH",                           :mat,  true,     data -> get_hist_diagonal_importance_stratified_memory_sampled_LFboth(data, ε, M)),
+        ("Hybrid1 (dep + womf + wnlfb)",         :svec, true,     data -> hybrid1_dep_wnlfb(data, ε, M))
+    ]
+
+    # Allokationsfreie Stat-Buffer für Monte-Carlo
+    rr_stat   = Vector{Float64}(undef, n_stat)
+    det_stat  = Vector{Float64}(undef, n_stat)
+    l_stat    = Vector{Float64}(undef, n_stat)
+    entr_stat = Vector{Float64}(undef, n_stat)
+    cnt_stat  = Vector{Int}(undef, n_stat)
+
+    for (name, data_type, active, func) in methods
+        !active && continue
+        
+        data = data_type == :svec ? x_svec : x_mat
+        println("\n>>> EVALUATING: $name <<<")
+
+        # 1. Benchmarking
+        b_woseed = @benchmark $func($data)
+        b_seed   = @benchmark $func($data) setup=(Random.seed!(42)) evals=1
+
+        t_woseed = round(median(b_woseed.times) / 1e6, digits=2)
+        t_seed   = round(median(b_seed.times) / 1e6, digits=2)
+        println("  [Benchmark W/O Seed]   $t_woseed ms | Allocs: $(b_woseed.allocs) | Mem: $(round(b_woseed.memory / 1024, digits=2)) KiB")
+        println("  [Benchmark WITH Seed]  $t_seed ms | Allocs: $(b_seed.allocs) | Mem: $(round(b_seed.memory / 1024, digits=2)) KiB")
+
+        # 2. Seed Run (Seed 42)
+        Random.seed!(42)
+        h_seed, c_seed = func(data)
+        rqa_s = rqa(h_seed, c_seed)
+
+        println("  [Exakt Seed 42]        countAll: $c_seed")
+        println("    RR:   $(round(rqa_s[1], digits=4)) (Δ: $(round(rqa_s[1] - rqa_woRP[1], digits=5)))")
+        println("    DET:  $(round(rqa_s[2], digits=4)) (Δ: $(round(rqa_s[2] - rqa_woRP[2], digits=5)))")
+        println("    L:    $(round(rqa_s[3], digits=4)) (Δ: $(round(rqa_s[3] - rqa_woRP[3], digits=5)))")
+        println("    ENTR: $(round(rqa_s[4], digits=4)) (Δ: $(round(rqa_s[4] - rqa_woRP[4], digits=5)))")
+
+        # 3. Monte-Carlo Läufe (mit @inbounds optimiert)
+        @inbounds for n in 1:n_stat
+            h_st, c_st = func(data)
+            cnt_stat[n] = c_st
+            r_st = rqa(h_st, c_st)
+            rr_stat[n]   = r_st[1]
+            det_stat[n]  = r_st[2]
+            l_stat[n]    = r_st[3]
+            entr_stat[n] = r_st[4]
+        end
+
+        println("  [Statistisch $n_stat Läufe]")
+        println("    countAll: $(round(mean(cnt_stat), digits=1)) ± $(round(std(cnt_stat), digits=1))")
+        println("    RR:   $(round(mean(rr_stat), digits=4)) ± $(round(std(rr_stat), digits=5)) (Δ: $(round(mean(rr_stat) - rqa_woRP[1], digits=5)))")
+        println("    DET:  $(round(mean(det_stat), digits=4)) ± $(round(std(det_stat), digits=5)) (Δ: $(round(mean(det_stat) - rqa_woRP[2], digits=5)))")
+        println("    L:    $(round(mean(l_stat), digits=4)) ± $(round(std(l_stat), digits=5)) (Δ: $(round(mean(l_stat) - rqa_woRP[3], digits=5)))")
+        println("    ENTR: $(round(mean(entr_stat), digits=4)) ± $(round(std(entr_stat), digits=5)) (Δ: $(round(mean(entr_stat) - rqa_woRP[4], digits=5)))")
+    end
+end
+
+# ====================================================================
+# 3. Datengenerierung & Ausführung
+# ====================================================================
+N_points = 10000
+M_default = Int(round(0.2 * N_points))
+
+# ---------------------------------------------------------
+# KLASSE 1: CHAOS (ROESSLER SYSTEM) - dim = 3
+# ---------------------------------------------------------
+function roessler!(du, u, p, t)
+    du[1] = -u[2] - u[3]
+    du[2] = u[1] + 0.2 * u[2]
+    du[3] = 0.2 + u[3] * (u[1] - 5.7)
+end
+
+prob_r = ODEProblem(roessler!, [-6.2668, -1.3413, 0.0166], (0.0, (N_points + 100 - 1) * 0.2)) 
+sol_r  = solve(prob_r, Tsit5(), saveat=0.2) 
+x_c1   = copy(transpose(reduce(hcat, sol_r.u)))[101:end, :]
+
+ε_c1 = 0.1 * (maximum(x_c1) - minimum(x_c1))   
+evaluate_system("KLASSE 1: CHAOS (ROESSLER SYSTEM)", x_c1, ε_c1, M_default; run_norb=true)
+
+# ---------------------------------------------------------
+# KLASSE 1: CHAOS (LORENZ SYSTEM) - dim = 3
+# ---------------------------------------------------------
+function generate_lorenz(N; dt=0.01, σ=10.0, ρ=28.0, β=8/3)
+    x = zeros(Float64, N, 3)
+    x[1, :] .= [1.0, 1.0, 1.0] 
+    @inbounds for i in 1:(N-1)
+        dx = σ * (x[i,2] - x[i,1])
+        dy = x[i,1] * (ρ - x[i,3]) - x[i,2]
+        dz = x[i,1] * x[i,2] - β * x[i,3]
+        x[i+1, 1] = x[i,1] + dx * dt
+        x[i+1, 2] = x[i,2] + dy * dt
+        x[i+1, 3] = x[i,3] + dz * dt
+    end
+    return x
+end
+
+x_lorenz = generate_lorenz(N_points)
+ε_lorenz = 0.1 * (maximum(x_lorenz) - minimum(x_lorenz))   
+evaluate_system("KLASSE 1: CHAOS (LORENZ SYSTEM)", x_lorenz, ε_lorenz, M_default; run_norb=true)
+
+# ---------------------------------------------------------
+# KLASSE 2: PERIODISCHE SYSTEME
+# ---------------------------------------------------------
+# 2a) Bad Embedding (dim = 1)
+t_h1 = range(0, step=0.1, length=N_points)
+x_h1 = reshape(sin.(t_h1), :, 1)
+ε_h1 = 0.1 * (maximum(x_h1) - minimum(x_h1)) 
+evaluate_system("KLASSE 2: BE+PD PERIODIC (HARMONIC OSCILLATOR)", x_h1, ε_h1, M_default; run_norb=true)
+
+# 2b) Glatt / Glattes PD (dim = 2) -> Norbert überspringen
+t_h2 = range(0, step=0.1, length=N_points)
+x_h2 = hcat(sin.(t_h2), cos.(t_h2))
+ε_h2 = 0.1 * (maximum(x_h2) - minimum(x_h2))   
+evaluate_system("KLASSE 2: PD(unrecognizable) PERIODIC", x_h2, ε_h2, M_default; run_norb=false)
+
+# 2c) Rauschen (dim = 2)
+Random.seed!(123)
+t_h3 = range(0, step=0.1, length=N_points)
+x_h3 = hcat(sin.(t_h3), cos.(t_h3)) .+ 0.05 .* randn(N_points, 2)
+ε_h3 = 0.1 * (maximum(x_h3) - minimum(x_h3))   
+evaluate_system("KLASSE 2: PD(noise) PERIODIC", x_h3, ε_h3, M_default; run_norb=true)
+
+# 2d) Quasiperiodisch (dim = 2)
+t_h4 = range(0, step=0.1, length=N_points)
+x_h4 = hcat(sin.(t_h4) .+ sin.(sqrt(2).*t_h4), cos.(t_h4) .+ cos.(sqrt(2).*t_h4))
+ε_h4 = 0.1 * (maximum(x_h4) - minimum(x_h4))   
+evaluate_system("KLASSE 2: QUASIPERIODIC", x_h4, ε_h4, M_default; run_norb=true)
+
+# 2e) Resonanz (dim = 2) -> Norbert überspringen
+t_h5 = range(0, step=0.1*pi, length=N_points)
+x_h5 = hcat(sin.(t_h5), cos.(t_h5))
+ε_h5 = 0.1 * (maximum(x_h5) - minimum(x_h5))   
+evaluate_system("KLASSE 2: PERIODIC (RESONANZ)", x_h5, ε_h5, M_default; run_norb=false)
+
+# ---------------------------------------------------------
+# KLASSE 3: WHITE NOISE (dim = 1)
+# ---------------------------------------------------------
+Random.seed!(123) 
+x_noise = reshape(randn(N_points), :, 1)
+ε_noise = 0.1 * (maximum(x_noise) - minimum(x_noise))   
+evaluate_system("KLASSE 3: HOMOGENOUS RP (WHITE NOISE)", x_noise, ε_noise, M_default; run_norb=true)
+
+# ---------------------------------------------------------
+# KLASSE 4: DRIFT / RANDOM WALK (dim = 1)
+# ---------------------------------------------------------
+Random.seed!(123) 
+x_drift = reshape(cumsum(randn(N_points)), :, 1)
+ε_drift = 0.1 * (maximum(x_drift) - minimum(x_drift))   
+evaluate_system("KLASSE 4: DRIFT (RANDOM WALK)", x_drift, ε_drift, M_default; run_norb=true)
+
+```
+
+---
+
+### Bewertung & Optimierung des Log-Redirection Snippets
+
+Dein bisheriger Ansatz:
+
+```julia
+open("Unfassbare_optimierungen_an_hybrid1_dep_wnlfb.txt", "w") do io
+    redirect_stdout(io) do
+        include("my_test_big_RP_2_ultra_opti.jl")
+    end
+end
+
+```
+
+**Probleme dieser Variante:**
+
+1. **Blindes Warten:** Du siehst im Terminal absolut gar nichts. Da 1000 Iterationen pro System Zeit kosten, weißt du nie, ob das Skript noch läuft oder hängt.
+2. **Kein automatisches Flushing:** Falls das Skript vorzeitig abgebrochen wird oder crasht, ist der Text-Puffer eventuell nicht auf die Festplatte geschrieben worden (Datei bleibt leer).
+
+#### Die zwei besseren Alternativen:
+
+**Option A: Doppel-Ausgabe (Terminal + Datei gleichzeitig)**
+Verwende ein kurzes Wrapper-Skript mit `Tee`, damit du den Fortschritt live im Terminal siehst und es trotzdem sauber in der Datei landet:
+
+```julia
+# wrapper.jl
+struct Tee{T1<:IO, T2<:IO} <: IO
+    out1::T1
+    out2::T2
+end
+Base.write(t::Tee, a::UInt8) = (write(t.out1, a); write(t.out2, a))
+Base.write(t::Tee, ptr::Ptr{UInt8}, nb::Int) = (write(t.out1, ptr, nb); write(t.out2, ptr, nb))
+Base.flush(t::Tee) = (flush(t.out1); flush(t.out2))
+
+open("Unfassbare_optimierungen_an_hybrid1_dep_wnlfb.txt", "w") do io
+    tee = Tee(stdout, io)
+    redirect_stdout(tee) do
+        include("my_test_big_RP_2_ultra_opti.jl")
+    end
+end
+
+```
+
+**Option B: Ausführung über das Terminal (Sehr sauber)**
+Führe das Julia-Skript einfach direkt im Terminal aus. Das Betriebssystem übernimmt das Redirection-Handling vollkommen ohne Julia-Overhead:
+
+* **PowerShell / Bash (Live-Output + Speichern):**
+```bash
+julia my_test_big_RP_2_ultra_opti.jl | tee Unfassbare_optimierungen_an_hybrid1_dep_wnlfb.txt
+
+```
+
+
+* **Nur in Datei schreiben:**
+bash
+julia my_test_big_RP_2_ultra_opti.jl > Unfassbare_optimierungen_an_hybrid1_dep_wnlfb.txt \\
+
+hier klappt noch was nicht:
+ERROR: MethodError: no method matching (::Base.RedirectStdStream)(::Tee{Base.TTY, IOStream})
+The function `Base.RedirectStdStream(1, true)` exists, but no method is defined for this combination of argument types.
+
+Closest candidates are:
+  (::Base.RedirectStdStream)()
+   @ Base stream.jl:1293
+  (::Base.RedirectStdStream)(::Pipe)
+   @ Base stream.jl:1285
+  (::Base.RedirectStdStream)(::Base.DevNull)
+   @ Base stream.jl:1271
+  ...
+
+Stacktrace:
+ [1] (::Base.RedirectStdStream)(thunk::var"#86#87", stream::Tee{Base.TTY, IOStream})
+   @ Base .\stream.jl:1462
+ [2] (::var"#84#85")(io::IOStream)
+   @ Main c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil\my_test_ausgaben_opti.jl:12
+ [3] open(::var"#84#85", ::String, ::Vararg{String}; kwargs::@Kwargs{})
+   @ Base .\io.jl:412
+ [4] open(::Function, ::String, ::String)
+   @ Base .\io.jl:409
+ [5] top-level scope
+   @ c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil\my_test_ausgaben_opti.jl:10
+
+bitte optimiere nochmal alles.\\
+
+Der Fehler mit dem Tee-Struct ist ein bekanntes Julia-Detail: Die Funktion redirect_stdout() arbeitet auf der untersten Betriebssystemebene (C-Level File-Deskriptoren). Sie akzeptiert daher keine selbstgebauten Julia-Structs, sondern nur echte System-Pipes oder Dateien.
+
+Um das exakt so umzusetzen, wie du es vorhattest (ein Julia-Skript, das den Code ausführt, live im Terminal anzeigt und gleichzeitig fehlerfrei in die Datei schreibt), müssen wir eine asynchrone Pipe nutzen.
+
+Hier ist die perfekte, professionelle Lösung für dein Setup. Du brauchst dafür zwei Dateien.
+
+1. Das neue Wrapper-Skript (wrapper.jl)
+Dieses Skript fängt den Datenstrom über das Betriebssystem ab, leitet ihn live an dein Terminal weiter und speichert ihn gleichzeitig ab.
+
+Kopiere das hier und führe in Zukunft einfach dieses Skript aus:
+....
+
+2. Das finale, hochoptimierte Haupt-Skript (my_test_big_RP_2_ultra_opti.jl)
+Dieses Skript ist jetzt vollständig optimiert, beinhaltet den Bugfix für Norbert (Übergabe als :svec), und die Ausgabe für die Baseline enthält die sauberen Zeilenumbrüche für die RQA-Werte.
+....\\
+
+was ist hier jetzt noch los?:
+
+Starte Ausführung von my_test_big_RP_2_ultra_opti.jl...
+Logs werden gespeichert in: Unfassbare_optimierungen_an_hybrid1_dep_wnlfb_und_systemen.txt
+
+
+========================================================================
+ SYSTEM: KLASSE 1: CHAOS (ROESSLER SYSTEM)
+========================================================================
+
+--- BASELINE: woRP ---
+Runtime: 704.73 ms
+Allocs:  3
+Mem:     78.19 KiB
+RR:      0.0828
+DET:     0.9984
+L:       23.7765
+ENTR:    3.8649
+
+>>> EVALUATING: Norbert (Standard) <<<
+  [Benchmark W/O Seed]   38.42 ms | Allocs: 91 | Mem: 82.9 KiB
+  [Benchmark WITH Seed]  35.51 ms | Allocs: 119 | Mem: 84.19 KiB
+  [Exakt Seed 42]        countAll: 519978
+    RR:   0.0834 (Δ: 0.00062)
+    DET:  0.9984 (Δ: 0.0)
+    L:    24.2745 (Δ: 0.49806)
+    ENTR: 3.8684 (Δ: 0.00354)
+  [Statistisch 1000 Läufe]
+    countAll: 508954.3 ± 13221.9
+    RR:   0.0834 ± 0.00242 (Δ: 0.00065)
+    DET:  0.9984 ± 0.00019 (Δ: -0.0)
+    L:    23.7849 ± 0.52595 (Δ: 0.00847)
+    ENTR: 3.837 ± 0.01915 (Δ: -0.02782)
+
+>>> EVALUATING: SMI LFBOTH <<<
+
+Ausführung beendet. Output erfolgreich gespeichert.
+ERROR: LoadError: MethodError: no method matching estimate_RR(::Matrix{Float64}, ::Float64)
+The function `estimate_RR` exists, but no method is defined for this combination of argument types.
+
+Closest candidates are:
+  estimate_RR(::AbstractRNG, ::AbstractVector{<:SVector}, ::T) where T<:AbstractFloat
+   @ Main c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil\my_sampling.jl:2715
+
+Stacktrace:
+  [1] get_hist_diagonal_importance_stratified_memory_sampled_LFboth(x::Matrix{…}, ε::Float64, M::Int64; s::Nothing, auto_s::Bool)
+    @ Main c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil\my_sampling.jl:483
+  [2] get_hist_diagonal_importance_stratified_memory_sampled_LFboth
+    @ c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil\my_sampling.jl:458 [inlined]
+  [3] #122
+    @ c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil\my_test_big_RP_2_ultra_opti.jl:60 [inlined]
+  [4] var"##core#344"(func#335::var"#122#123"{Float64, Int64}, data#336::Matrix{Float64})
+    @ Main C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:647
+  [5] var"##sample#345"(::Tuple{…}, __params::BenchmarkTools.Parameters, __sample_ref::Base.RefValue{…}, __result_ref::Nothing)
+    @ Main C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:659
+  [6] _lineartrial(b::BenchmarkTools.Benchmark, p::BenchmarkTools.Parameters; maxevals::Int64, kwargs::@Kwargs{})
+    @ BenchmarkTools C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:222
+  [7] _lineartrial(b::BenchmarkTools.Benchmark, p::BenchmarkTools.Parameters)
+    @ BenchmarkTools C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:216
+  [8] #lineartrial#32
+    @ C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:53 [inlined]
+  [9] lineartrial
+    @ C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:52 [inlined]
+ [10] tune!(b::BenchmarkTools.Benchmark, p::BenchmarkTools.Parameters; progressid::Nothing, nleaves::Float64, ndone::Float64, verbose::Bool, pad::String, kwargs::@Kwargs{})
+    @ BenchmarkTools C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:341
+ [11] tune! (repeats 2 times)
+    @ C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:330 [inlined]
+ [12] macro expansion
+    @ C:\Users\Benedict\.julia\packages\BenchmarkTools\ZtsPk\src\execution.jl:503 [inlined]
+ [13] evaluate_system(system_name::String, x_mat::Matrix{Float64}, ε::Float64, M::Int64; run_norb::Bool, n_stat::Int64)
+    @ Main c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil\my_test_big_RP_2_ultra_opti.jl:78
+ [14] top-level scope
+    @ c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil\my_test_big_RP_2_ultra_opti.jl:137
+in expression starting at c:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil\my_test_big_RP_2_ultra_opti.jl:137
+Some type information was truncated. Use `show(err)` to see complete types.
+
+und was muss ich tun?\\
+
+
 
 
 \\
@@ -17217,7 +18475,12 @@ Begründung: Chaotische Systeme (wie Rössler) haben instabile periodische Orbit
 %
 ## testis testis testis und ausbessern/optimieren bis hin zu finalen versionen der vorabschätzenden parameter zur periodizitätsprüfung und der entweder absoluten werte und der überlegten gesetzmäßigkeiten 
 \\
+### sind die tests in my_test_big_RP_2 und -opti für die alten varianten (v.A. Norberts) und meine neuen optimierten vergleichbar?
+
+\\
 ### jeden parameter einzeln durchtesten
+#### was genau sagt das nyquist theorem und wie gibt das die parameter jeweils vor und ist das der beste weg?
+
 \\
 ## max_misses in die rqa relevanten samplings einbauen, um qualität der rqa werte zu verbessern?\\
 

@@ -1868,7 +1868,7 @@ end
 Sampling 4.2.1.1: hybrid1_dep ohne max_fails (und andere deps?) wnlfb
 """
 
-function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true) where {T<:AbstractFloat}
+function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true, rng::AbstractRNG = Random.default_rng()) where {T<:AbstractFloat}
     N = length(x)                  # Number of observations and variables
     L_local = zeros(Float64, N)           # Histogram for line lengths - mit typ float64, wegen korrektur in zählung der linien bestimmter länge (1/cnt)
     # L_local_old = zeros(Int, N)       # Histogram for line lengths
@@ -1877,9 +1877,11 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
     countAll = 0                      # Number of searches
     total_pairs = N * (N - 1) ÷ 2     # Number of (i,j) paires with i > j (excl. LOI)
 
+    max_searches = max(M * 200, total_pairs * 2)
+
     # Convergenz parameter
     K = 50              # newly calculate all K lines
-    W = 5               # window size for sliding average
+    W_conv = 5               # window size for sliding average
     tol = 1e-3          # relative toleranz
     min_samples = 500   # minimum number of samples before break
 
@@ -1887,12 +1889,10 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
     sum_n2_L = 0.0   # sum(n * L[n]) for n >= 2
     sum_L2   = 0.0   # sum(L[n]) for n >= 2
     
-    det_ring = zeros(Float64, W)
-    l_ring   = zeros(Float64, W)
+    det_ring = zeros(Float64, W_conv)
+    l_ring   = zeros(Float64, W_conv)
     ring_idx = 1
     history_count = 0
-
-    rng = Xoshiro() # ??
 
     # check periodicity by checking diagonals for black points (by going through the columns of the 2N÷3 th row <=> 2/3 of the diagonals are checked) and suffieciently equidistant periodic distances in between them and if so, then the line length is checked for sufficent length (dynamically determined conditions (sufficient length, fraction of the matrix/RP that is getting checked )? and absolute conditions (sufficient number of black diagonals, error in equidistance of the potential period in between the black diagonals)?)
     check_length = clamp(N ÷ 20, 15, 100) # dynamisch besser !? -> !! und max besser als clamp?? gefhar auf unnötig lange prüfungen?
@@ -1900,12 +1900,13 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
     is_periodic = false
     long_lines = 0
     d1 = d2 = d3 = d4 = d5 = -1 # -1 heißt einfach noch keine reale diagonale zugewiesen; diagonalen-ID ist immer d > 0 , außer LOI d=0
+    d12 = d23 = d34 = d45 = d13 = d24 = d14 = d15 = d25 = d35 = 0 # globaler definieren und speichern, dass sie nicht nur in den if blöcken existieren und dann wieder gelöscht werden siehe unten
     i = N - check_length # oberste zeile, die noch eine diagonale von länge check_length im upper_triangle zulässt
                         # eig doch digonal check_length nur benötigt, also i = N - (a=\sqrt(check_length**2 - c**2)) ?? aber wir wollen keine wurzeln, also reicht uns N-check_length??
     period_equidistance_error = 2 # maximal erlaubter fehler in der äquidistanz der abstände/perioden zwischen den aktuell geprüften diagonalen
-    W = estimate_W(rng, x, ε) # Theiler-Window
-    current = i - W # aktuelle spalte in zeile i
-    W_soujorn = max(3, W)           # pause_after_long_diag; drift nahe LOI oder ähnliche einfach schwarze masseneffekte (theiler window, soujorn/verweil zeit) nicht berücksichtigen
+    W_theiler = estimate_W(rng, x, ε) # Theiler-Window
+    current = i - W_theiler # aktuelle spalte in zeile i
+    W_soujorn = max(3, W_theiler)           # pause_after_long_diag; drift nahe LOI oder ähnliche einfach schwarze masseneffekte (theiler window, soujorn/verweil zeit) nicht berücksichtigen
     estimated_RR = estimate_RR(rng, x, ε)
     # Bei hohem RR (viel Rauschen/Dichte) brechen wenige Fehlversuche das Verfahren ab (z.B. 20).
     # Bei kleinem RR darf der Algorithmus mehr seltene schwarze Punkte testen (bis zu 150).
@@ -2001,14 +2002,31 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
         
         # println("--> NORBERTS SAMPLING (wlfb) (DETECTED AS PERIODIC)")
         while count < M
+
+            if countAll > max_searches
+                # Notausstieg: Das RP gibt nicht genug Linien für das geforderte M her.
+                break
+            end
+
+
             countAll += 1                 # Count number of searches
             # Alternativ: Direktes Ziehen der Diagonale d in 1:(N-1) und der Spalte j
             # (spart sqrt vollständig ein):
-            d = rand(rng, 1:(N-1))
-            j_start = rand(rng, 1:(N - d))
-            i_start = j_start + d
+            # d = rand(rng, 1:(N-1))
+            # j_start = rand(rng, 1:(N - d))
+            # i_start = j_start + d
 
-            #println("i: ", i_start, "  j: ", j_start)
+            # Besser als oberes (Uniform Sampling, oberes ist nicht gleichverteilt?!?) ??:
+            u1 = rand(rng, 1:N)
+            u2 = rand(rng, 1:N)
+
+            if u1 == u2
+                continue  # Wir ignorieren die LOI
+            end
+
+            # i ist immer die größere Zahl, j die kleinere (Oberes Dreieck)
+            # minmax gibt das Tupel (kleinste, größte) zurück
+            j_start, i_start = minmax(u1, u2)
 
             # 
             if sq_dist(x, i_start, j_start) > ε2
@@ -2016,8 +2034,8 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
             end
 
             # Black Point found, now count line length
-            cnt = 0
-            @inbounds for offset in 0:(N - i_start) # weshalb klappt das?
+            cnt = 1 # einen haben wir ja schon gefunden
+            @inbounds for offset in 1:(N - i_start) # von eins, denn einen haben wir ja schon gefunden
                 if sq_dist(x, i_start + offset, j_start + offset) <= ε2          # Count points belonging to diagonal
                     cnt += 1              # Extend diagonal
                 else
@@ -2033,24 +2051,28 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
             end
             # Store line length to histogram variable
             if cnt > 0 #&& !((i_start, j_start) in seen)
-                weight = 1/cnt
-                L_local[cnt] += weight         # Store completed line length w/ weight by line length so the count of lines is not biased by line-length
+
+                weight = 1.0 / cnt
+                L_local[cnt] += weight    # Store completed line length w/ weight by line length so the count of lines is not biased by line-length
                 count += 1                # Count found lines (only counted if a line was found)
-                sum_n_L  += cnt * weight
-                sum_n2_L += cnt >= 2 ? cnt*weight : 0.0
-                sum_L2   += cnt >= 2 ? weight  : 0.0
-                
-                # 
+
+                #sum_n2_L += cnt >= 2 ? 1.0 : 0.0
+                #sum_L2   += cnt >= 2 ? weight : 0.0
+                # besser, da if und ternäre operatoren einsparen, auf 1 und 0 abfragen reduzieren?!:
+                is_long = cnt >= 2
+                sum_n2_L += is_long
+                sum_L2   += is_long * weight
+
                 if count % K == 0 && count >= min_samples
                     # DET und L direkt aus den Summen:
-                    det_val = sum_n2_L / sum_n_L
+                    det_val = sum_n2_L / count   # sum_n_L ist einfach count!
                     l_val   = sum_n2_L / sum_L2
-                    
+                                    
                     det_ring[ring_idx] = det_val
                     l_ring[ring_idx]   = l_val
-                    ring_idx = (ring_idx % W) + 1
+                    ring_idx = (ring_idx % W_conv) + 1
                     history_count += 1
-                    if history_count >= W
+                    if history_count >= W_conv
                         # relative change over last window
                         det_window = det_ring
                         l_window   = l_ring
@@ -2120,7 +2142,7 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
 
                 # isqrt zieht die Wurzel auf reiner Integer-Basis (abgerundet)
                 # Durch den cleveren Trick mit der ganzzahligen Division (÷) eliminieren wir das ceil()
-                N_const = 2N - 1
+                N_const = 2N - 1 # für riesen N, aber ohne rechenzeitverluste bei kleinen N?!
                 d = (N_const - isqrt(N_const^2 - 8 * idx + 1)) ÷ 2 + 1 # which diagonal we are on
                 previous_elements = (d - 1) * N - (d - 1) * d ÷ 2
                 j_start = idx - previous_elements     # spalte
@@ -2136,9 +2158,19 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
             end
         end
 
+        if active_box_count == 0
+            # println("No active boxes found. Returning early.")
+            return L_local, countAll # equivalent to an near empty RP
+        end
 
         current_box = 0
         while count < M
+            
+            if countAll > max_searches
+                # Notausstieg: Das RP gibt nicht genug Linien für das geforderte M her.
+                break
+            end
+
 
             current_box = active_boxs[rand(rng, 1:active_box_count)] 
             #if current_box > num_boxes
@@ -2163,8 +2195,8 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
             end
 
             # Black Point found, now count line length
-            cnt = 0
-            @inbounds for offset in 0:(N - i_start) # weshalb klappt das?
+            cnt = 1 # einen haben wir ja schon gefunden
+            @inbounds for offset in 1:(N - i_start) # einen haben wir ja schon gefunden
                 if sq_dist(x, i_start + offset, j_start + offset) <= ε2          # Count points belonging to diagonal
                     cnt += 1              # Extend diagonal
                 else
@@ -2194,9 +2226,9 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
 
                     det_ring[ring_idx] = det_val
                     l_ring[ring_idx]   = l_val
-                    ring_idx = (ring_idx % W) + 1
+                    ring_idx = (ring_idx % W_conv) + 1
                     history_count += 1
-                    if history_count >= W
+                    if history_count >= W_conv
                         # relative change over last window
                         det_window = det_ring
                         l_window   = l_ring
@@ -2212,7 +2244,8 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
             end          
         end
 
-        countAll_correct_scaled = round(Int, countAll * (num_boxes / active_box_count))
+        # Zuerst multiplizieren, dann ganzzahlig dividieren. Null Floating-Point-Ops!
+        countAll_correct_scaled = div(Int128(countAll) * num_boxes, active_box_count)
         return L_local, countAll_correct_scaled
 
     end
@@ -2703,7 +2736,7 @@ end
 """
 Zusatzfunktion 2: estimate_W 
 """
-@inline function _sample_sojourn_time(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, N::Int) where {T<:AbstractFloat}
+@inline function sample_sojourn_time(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, N::Int) where {T<:AbstractFloat}
     idx = rand(rng, 2:N)  
     misses = 0
     offset = 1
@@ -2734,13 +2767,13 @@ function estimate_W(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε::T) where
     N = length(x)
     ε2 = ε^2
 
-    w1 = _sample_sojourn_time(rng, x, ε2, N)
-    w2 = _sample_sojourn_time(rng, x, ε2, N)
-    w3 = _sample_sojourn_time(rng, x, ε2, N)
-    w4 = _sample_sojourn_time(rng, x, ε2, N)
-    w5 = _sample_sojourn_time(rng, x, ε2, N)
+    w1 = sample_sojourn_time(rng, x, ε2, N)
+    w2 = sample_sojourn_time(rng, x, ε2, N)
+    w3 = sample_sojourn_time(rng, x, ε2, N)
+    w4 = sample_sojourn_time(rng, x, ε2, N)
+    w5 = sample_sojourn_time(rng, x, ε2, N)
 
-    return round(Int, median((w1, w2, w3, w4, w5))) 
+    return round(Int, median(SVector(w1, w2, w3, w4, w5)))
 end
 
 """
@@ -2766,5 +2799,5 @@ Zusatzfunktion 4: calc_rel_change
         sum_val += val
     end
     avg = sum_val / length(window)
-    return (mx - mn) / avg
+    return avg == 0.0 ? 1.0 : (mx - mn) / avg # Falls in den ersten $W_{\text{conv}}$ Iterationen noch keine Linien der Länge $\ge 2$ gefunden wurden, ist sum_n2_L = 0.0 und somit avg = 0.0. Das führt in calc_rel_change zu einer $0/0$-Division (NaN). In Julia ist NaN < tol immer false, weshalb der Code zwar nicht falsch abbricht, aber eine explizite Prüfung vermeidet unnötige NaN-Arithmetik in der CPU
 end

@@ -1,0 +1,30 @@
+
+========================================================================
+ SYSTEM: KLASSE 1: CHAOS (ROESSLER SYSTEM)
+========================================================================
+
+--- BASELINE: woRP ---
+Runtime: 704.73 ms
+Allocs:  3
+Mem:     78.19 KiB
+RR:      0.0828
+DET:     0.9984
+L:       23.7765
+ENTR:    3.8649
+
+>>> EVALUATING: Norbert (Standard) <<<
+  [Benchmark W/O Seed]   38.42 ms | Allocs: 91 | Mem: 82.9 KiB
+  [Benchmark WITH Seed]  35.51 ms | Allocs: 119 | Mem: 84.19 KiB
+  [Exakt Seed 42]        countAll: 519978
+    RR:   0.0834 (Δ: 0.00062)
+    DET:  0.9984 (Δ: 0.0)
+    L:    24.2745 (Δ: 0.49806)
+    ENTR: 3.8684 (Δ: 0.00354)
+  [Statistisch 1000 Läufe]
+    countAll: 508954.3 ± 13221.9
+    RR:   0.0834 ± 0.00242 (Δ: 0.00065)
+    DET:  0.9984 ± 0.00019 (Δ: -0.0)
+    L:    23.7849 ± 0.52595 (Δ: 0.00847)
+    ENTR: 3.837 ± 0.01915 (Δ: -0.02782)
+
+>>> EVALUATING: SMI LFBOTH <<<
