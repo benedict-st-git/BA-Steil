@@ -1907,7 +1907,7 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
     W_theiler = estimate_W(rng, x, ε) # Theiler-Window
     current = i - W_theiler # aktuelle spalte in zeile i
     W_soujorn = max(3, W_theiler)           # pause_after_long_diag; drift nahe LOI oder ähnliche einfach schwarze masseneffekte (theiler window, soujorn/verweil zeit) nicht berücksichtigen
-    estimated_RR = estimate_RR(rng, x, ε)
+    estimated_RR = estimate_RR_svec(rng, x, ε)
     # Bei hohem RR (viel Rauschen/Dichte) brechen wenige Fehlversuche das Verfahren ab (z.B. 20).
     # Bei kleinem RR darf der Algorithmus mehr seltene schwarze Punkte testen (bis zu 150).
     max_fails = clamp(round(Int, 3.0 / max(estimated_RR, 0.01)), 15, 150)
@@ -2143,7 +2143,7 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
                 # isqrt zieht die Wurzel auf reiner Integer-Basis (abgerundet)
                 # Durch den cleveren Trick mit der ganzzahligen Division (÷) eliminieren wir das ceil()
                 N_const = 2N - 1 # für riesen N, aber ohne rechenzeitverluste bei kleinen N?!
-                d = (N_const - isqrt(N_const^2 - 8 * idx + 1)) ÷ 2 + 1 # which diagonal we are on
+                d = (N_const - isqrt(N_const^2 - 8 * idx) + 1) ÷ 2    # which diagonal we are on
                 previous_elements = (d - 1) * N - (d - 1) * d ÷ 2
                 j_start = idx - previous_elements     # spalte
                 i_start = j_start + d
@@ -2185,7 +2185,7 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
 
             # weshalb das folgende? mathe verstehen.
             N_const = 2N - 1
-            d = (N_const - isqrt(N_const^2 - 8 * idx + 1)) ÷ 2 + 1 # which diagonal we are on
+            d = (N_const - isqrt(N_const^2 - 8 * idx) + 1) ÷ 2    # which diagonal we are on
             previous_elements = (d - 1) * N - (d - 1) * d ÷ 2
             j_start = idx - previous_elements     # spalte
             i_start = j_start + d                 # zeile größer spalte => oberes dreieck (diagonale von links unten nach rechts oben und achsen-nullpunkt links unten)
@@ -2712,7 +2712,8 @@ end
 """
 Zusatzfunktion 1: estimate_RR
 """
-@inline function estimate_RR(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε::T) where {T<:AbstractFloat}
+# 1. Optimal für hybrid1_dep_wnlfb (mit SVector und übergebenem RNG)
+@inline function estimate_RR_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε::T) where {T<:AbstractFloat}
     N = length(x)
     total_pairs = N * (N - 1) ÷ 2
     ε2 = ε^2
@@ -2726,6 +2727,33 @@ Zusatzfunktion 1: estimate_RR
         i_start = j_start + d
         
         if sq_dist(x, i_start, j_start) <= ε2
+            hits += 1
+        end
+    end
+    
+    return hits / samples
+end
+
+# 2. Alte Version exklusiv für smi_lfb (Matrix, 2 Argumente, ohne RNG-Objekt)
+@inline function estimate_RR(x::AbstractMatrix{T}, ε::T) where {T<:AbstractFloat}
+    N, dim = size(x)
+    total_pairs = N * (N - 1) ÷ 2
+    ε2 = ε^2
+    hits = 0  
+    samples = min(2000, max(1, round(Int, 0.1 * total_pairs)))
+
+    @inbounds for _ in 1:samples
+        d = rand(1:(N-1))
+        j_start = rand(1:(N - d))
+        i_start = j_start + d
+        
+        # Manuelle Distanzberechnung, da sq_dist nur für SVector existiert
+        D2 = zero(T)
+        for k in 1:dim
+            D2 += (x[i_start, k] - x[j_start, k])^2
+        end
+        
+        if D2 <= ε2
             hits += 1
         end
     end

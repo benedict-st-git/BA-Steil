@@ -1,0 +1,492 @@
+
+========================================================================
+ SYSTEM: KLASSE 1: CHAOS (ROESSLER SYSTEM)
+========================================================================
+
+--- BASELINE: woRP ---
+Runtime: 184.73 ms
+Allocs:  3
+Mem:     78.19 KiB
+RR:      0.0828
+DET:     0.9984
+L:       23.7765
+ENTR:    3.8649
+
+>>> EVALUATING: Norbert (Standard) <<<
+  [Benchmark W/O Seed]   7.66 ms | Allocs: 67 | Mem: 81.76 KiB
+  [Benchmark WITH Seed]  7.75 ms | Allocs: 119 | Mem: 84.19 KiB
+  [Exakt Seed 42]        countAll: 519978
+    RR:   0.0834 (Δ: 0.00062)
+    DET:  0.9984 (Δ: 0.0)
+    L:    24.2745 (Δ: 0.49806)
+    ENTR: 3.8684 (Δ: 0.00354)
+  [Statistisch 1000 Läufe]
+    countAll: 508954.3 ± 13221.9
+    RR:   0.0834 ± 0.00242 (Δ: 0.00065)
+    DET:  0.9984 ± 0.00019 (Δ: -0.0)
+    L:    23.7849 ± 0.52595 (Δ: 0.00847)
+    ENTR: 3.837 ± 0.01915 (Δ: -0.02782)
+
+>>> EVALUATING: SMI LFBOTH <<<
+  [Benchmark W/O Seed]   1.17 ms | Allocs: 64 | Mem: 97.86 KiB
+  [Benchmark WITH Seed]  1.16 ms | Allocs: 128 | Mem: 100.75 KiB
+  [Exakt Seed 42]        countAll: 23237
+    RR:   0.0861 (Δ: 0.00329)
+    DET:  0.9985 (Δ: 6.0e-5)
+    L:    24.059 (Δ: 0.28256)
+    ENTR: 3.8493 (Δ: -0.01551)
+  [Statistisch 1000 Läufe]
+    countAll: 22915.5 ± 464.0
+    RR:   0.0873 ± 0.00177 (Δ: 0.00454)
+    DET:  0.9986 ± 0.00086 (Δ: 0.00014)
+    L:    24.4887 ± 0.62906 (Δ: 0.71228)
+    ENTR: 3.8474 ± 0.02397 (Δ: -0.01743)
+
+>>> EVALUATING: Hybrid1 (dep + womf + wnlfb) <<<
+  [Benchmark W/O Seed]   1.67 ms | Allocs: 11 | Mem: 94.12 KiB
+  [Benchmark WITH Seed]  1.66 ms | Allocs: 11 | Mem: 94.12 KiB
+  [Exakt Seed 42]        countAll: 23236
+    RR:   0.0861 (Δ: 0.0033)
+    DET:  0.9985 (Δ: 6.0e-5)
+    L:    24.059 (Δ: 0.28256)
+    ENTR: 3.8493 (Δ: -0.01551)
+  [Statistisch 1000 Läufe]
+    countAll: 22924.8 ± 461.7
+    RR:   0.0873 ± 0.00176 (Δ: 0.0045)
+    DET:  0.9985 ± 0.00084 (Δ: 7.0e-5)
+    L:    24.4896 ± 0.63764 (Δ: 0.7131)
+    ENTR: 3.8475 ± 0.02373 (Δ: -0.01733)
+
+========================================================================
+ SYSTEM: KLASSE 1: CHAOS (LORENZ SYSTEM)
+========================================================================
+
+--- BASELINE: woRP ---
+Runtime: 186.55 ms
+Allocs:  3
+Mem:     78.19 KiB
+RR:      0.1205
+DET:     0.9999
+L:       40.5319
+ENTR:    4.5242
+
+>>> EVALUATING: Norbert (Standard) <<<
+  [Benchmark W/O Seed]   9.88 ms | Allocs: 119 | Mem: 84.19 KiB
+  [Benchmark WITH Seed]  10.09 ms | Allocs: 119 | Mem: 84.19 KiB
+  [Exakt Seed 42]        countAll: 617671
+    RR:   0.1171 (Δ: -0.00341)
+    DET:  0.9999 (Δ: -4.0e-5)
+    L:    39.5646 (Δ: -0.9673)
+    ENTR: 4.416 (Δ: -0.10824)
+  [Statistisch 1000 Läufe]
+    countAll: 590248.5 ± 15688.4
+    RR:   0.1249 ± 0.00457 (Δ: 0.00444)
+    DET:  0.9999 ± 4.0e-5 (Δ: 0.0)
+    L:    40.5693 ± 1.2931 (Δ: 0.03739)
+    ENTR: 4.4402 ± 0.02749 (Δ: -0.084)
+
+>>> EVALUATING: SMI LFBOTH <<<
+  [Benchmark W/O Seed]   1.56 ms | Allocs: 82 | Mem: 122.75 KiB
+  [Benchmark WITH Seed]  1.6 ms | Allocs: 130 | Mem: 124.86 KiB
+  [Exakt Seed 42]        countAll: 15614
+    RR:   0.1281 (Δ: 0.00759)
+    DET:  0.999 (Δ: -0.0009)
+    L:    41.1092 (Δ: 0.57725)
+    ENTR: 4.4697 (Δ: -0.05449)
+  [Statistisch 1000 Läufe]
+    countAll: 15290.3 ± 328.1
+    RR:   0.1308 ± 0.00272 (Δ: 0.01033)
+    DET:  0.9999 ± 0.00021 (Δ: 1.0e-5)
+    L:    41.0893 ± 1.14673 (Δ: 0.55743)
+    ENTR: 4.4704 ± 0.02975 (Δ: -0.05386)
+
+>>> EVALUATING: Hybrid1 (dep + womf + wnlfb) <<<
+  [Benchmark W/O Seed]   1.5 ms | Allocs: 11 | Mem: 94.12 KiB
+  [Benchmark WITH Seed]  1.5 ms | Allocs: 11 | Mem: 94.12 KiB
+  [Exakt Seed 42]        countAll: 15614
+    RR:   0.1281 (Δ: 0.00759)
+    DET:  0.999 (Δ: -0.0009)
+    L:    41.1092 (Δ: 0.57725)
+    ENTR: 4.4697 (Δ: -0.05449)
+  [Statistisch 1000 Läufe]
+    countAll: 15316.3 ± 335.6
+    RR:   0.1306 ± 0.00272 (Δ: 0.01011)
+    DET:  0.9999 ± 0.00021 (Δ: 1.0e-5)
+    L:    41.0479 ± 1.16615 (Δ: 0.51604)
+    ENTR: 4.4697 ± 0.03017 (Δ: -0.05457)
+
+========================================================================
+ SYSTEM: KLASSE 2: BE+PD PERIODIC (HARMONIC OSCILLATOR)
+========================================================================
+
+--- BASELINE: woRP ---
+Runtime: 147.39 ms
+Allocs:  3
+Mem:     78.19 KiB
+RR:      0.1687
+DET:     0.9999
+L:       6.3701
+ENTR:    1.9267
+
+>>> EVALUATING: Norbert (Standard) <<<
+  [Benchmark W/O Seed]   0.97 ms | Allocs: 67 | Mem: 81.77 KiB
+  [Benchmark WITH Seed]  1.0 ms | Allocs: 119 | Mem: 84.19 KiB
+  [Exakt Seed 42]        countAll: 68745
+    RR:   0.3102 (Δ: 0.1415)
+    DET:  0.9999 (Δ: 2.0e-5)
+    L:    11.98 (Δ: 5.60983)
+    ENTR: 1.9879 (Δ: 0.06115)
+  [Statistisch 1000 Läufe]
+    countAll: 66973.0 ± 1624.2
+    RR:   0.1683 ± 0.07002 (Δ: -0.00039)
+    DET:  0.9999 ± 0.00011 (Δ: -2.0e-5)
+    L:    6.3179 ± 2.62215 (Δ: -0.05223)
+    ENTR: 1.9166 ± 0.02941 (Δ: -0.0102)
+
+>>> EVALUATING: SMI LFBOTH <<<
+  [Benchmark W/O Seed]   11.77 ms | Allocs: 94 | Mem: 100.79 KiB
+  [Benchmark WITH Seed]  11.37 ms | Allocs: 130 | Mem: 124.86 KiB
+  [Exakt Seed 42]        countAll: 11038
+    RR:   0.1812 (Δ: 0.01249)
+    DET:  1.0 (Δ: 0.0001)
+    L:    6.7648 (Δ: 0.39461)
+    ENTR: 2.0041 (Δ: 0.07739)
+  [Statistisch 1000 Läufe]
+    countAll: 11049.1 ± 392.2
+    RR:   0.1811 ± 0.00586 (Δ: 0.01243)
+    DET:  0.9999 ± 0.00022 (Δ: 1.0e-5)
+    L:    6.9487 ± 0.35218 (Δ: 0.5786)
+    ENTR: 2.0263 ± 0.05687 (Δ: 0.09959)
+
+>>> EVALUATING: Hybrid1 (dep + womf + wnlfb) <<<
+  [Benchmark W/O Seed]   3.32 ms | Allocs: 8 | Mem: 78.41 KiB
+  [Benchmark WITH Seed]  3.4 ms | Allocs: 8 | Mem: 78.41 KiB
+  [Exakt Seed 42]        countAll: 10468
+    RR:   0.1911 (Δ: 0.02236)
+    DET:  0.9995 (Δ: -0.0004)
+    L:    6.4972 (Δ: 0.12709)
+    ENTR: 1.922 (Δ: -0.00474)
+  [Statistisch 1000 Läufe]
+    countAll: 10520.4 ± 296.3
+    RR:   0.1899 ± 0.00379 (Δ: 0.02125)
+    DET:  0.9999 ± 0.00023 (Δ: 1.0e-5)
+    L:    6.3815 ± 0.15273 (Δ: 0.01138)
+    ENTR: 1.9217 ± 0.03356 (Δ: -0.00506)
+
+========================================================================
+ SYSTEM: KLASSE 2: PD(unrecognizable) PERIODIC
+========================================================================
+
+--- BASELINE: woRP ---
+Runtime: 152.45 ms
+Allocs:  3
+Mem:     78.19 KiB
+RR:      0.0637
+DET:     1.0
+L:       4985.9484
+ENTR:    6.4599
+
+>>> EVALUATING: SMI LFBOTH <<<
+  [Benchmark W/O Seed]   38.15 ms | Allocs: 126 | Mem: 90.03 KiB
+  [Benchmark WITH Seed]  38.62 ms | Allocs: 126 | Mem: 90.03 KiB
+  [Exakt Seed 42]        countAll: 32242
+    RR:   0.062 (Δ: -0.0017)
+    DET:  1.0 (Δ: 0.0)
+    L:    4668.7079 (Δ: -317.24044)
+    ENTR: 6.0233 (Δ: -0.43657)
+  [Statistisch 1000 Läufe]
+    countAll: 31499.6 ± 582.4
+    RR:   0.0635 ± 0.00107 (Δ: -0.00024)
+    DET:  1.0 ± 0.0 (Δ: 0.0)
+    L:    5067.7801 ± 232.59701 (Δ: 81.83172)
+    ENTR: 6.0883 ± 0.12931 (Δ: -0.37158)
+
+>>> EVALUATING: Hybrid1 (dep + womf + wnlfb) <<<
+  [Benchmark W/O Seed]   12.41 ms | Allocs: 8 | Mem: 78.41 KiB
+  [Benchmark WITH Seed]  12.37 ms | Allocs: 8 | Mem: 78.41 KiB
+  [Exakt Seed 42]        countAll: 32271
+    RR:   0.062 (Δ: -0.00175)
+    DET:  1.0 (Δ: 0.0)
+    L:    5133.5383 (Δ: 147.58991)
+    ENTR: 6.1458 (Δ: -0.31409)
+  [Statistisch 1000 Läufe]
+    countAll: 31324.1 ± 961.3
+    RR:   0.0638 ± 0.00137 (Δ: 7.0e-5)
+    DET:  1.0 ± 0.0 (Δ: 0.0)
+    L:    4995.3389 ± 219.40364 (Δ: 9.39055)
+    ENTR: 6.0812 ± 0.13234 (Δ: -0.37868)
+
+========================================================================
+ SYSTEM: KLASSE 2: PD(noise) PERIODIC
+========================================================================
+
+--- BASELINE: woRP ---
+Runtime: 166.07 ms
+Allocs:  3
+Mem:     78.19 KiB
+RR:      0.0654
+DET:     0.9056
+L:       9.4577
+ENTR:    1.9709
+
+>>> EVALUATING: Norbert (Standard) <<<
+  [Benchmark W/O Seed]   1.87 ms | Allocs: 119 | Mem: 84.19 KiB
+  [Benchmark WITH Seed]  1.86 ms | Allocs: 119 | Mem: 84.19 KiB
+  [Exakt Seed 42]        countAll: 149784
+    RR:   0.0741 (Δ: 0.00876)
+    DET:  0.9142 (Δ: 0.00858)
+    L:    10.5005 (Δ: 1.04282)
+    ENTR: 2.0047 (Δ: 0.03378)
+  [Statistisch 1000 Läufe]
+    countAll: 151011.2 ± 3437.8
+    RR:   0.0667 ± 0.00598 (Δ: 0.0013)
+    DET:  0.9044 ± 0.00914 (Δ: -0.00116)
+    L:    9.4104 ± 0.88986 (Δ: -0.04723)
+    ENTR: 1.9287 ± 0.0381 (Δ: -0.04218)
+
+>>> EVALUATING: SMI LFBOTH <<<
+  [Benchmark W/O Seed]   1.27 ms | Allocs: 126 | Mem: 90.03 KiB
+  [Benchmark WITH Seed]  1.24 ms | Allocs: 126 | Mem: 90.03 KiB
+  [Exakt Seed 42]        countAll: 29062
+    RR:   0.0688 (Δ: 0.00343)
+    DET:  0.91 (Δ: 0.00443)
+    L:    9.506 (Δ: 0.04837)
+    ENTR: 1.9908 (Δ: 0.01984)
+  [Statistisch 1000 Läufe]
+    countAll: 28977.6 ± 494.3
+    RR:   0.069 ± 0.00118 (Δ: 0.00366)
+    DET:  0.9103 ± 0.00645 (Δ: 0.00476)
+    L:    9.545 ± 0.30256 (Δ: 0.08737)
+    ENTR: 2.0006 ± 0.05069 (Δ: 0.02969)
+
+>>> EVALUATING: Hybrid1 (dep + womf + wnlfb) <<<
+  [Benchmark W/O Seed]   0.52 ms | Allocs: 8 | Mem: 78.41 KiB
+  [Benchmark WITH Seed]  0.51 ms | Allocs: 8 | Mem: 78.41 KiB
+  [Exakt Seed 42]        countAll: 29367
+    RR:   0.0681 (Δ: 0.00272)
+    DET:  0.9195 (Δ: 0.01393)
+    L:    9.3655 (Δ: -0.09213)
+    ENTR: 2.0624 (Δ: 0.0915)
+  [Statistisch 1000 Läufe]
+    countAll: 28689.3 ± 623.0
+    RR:   0.0697 ± 0.00152 (Δ: 0.00436)
+    DET:  0.9053 ± 0.00654 (Δ: -0.00026)
+    L:    9.4799 ± 0.31446 (Δ: 0.02222)
+    ENTR: 1.962 ± 0.04905 (Δ: -0.00891)
+
+========================================================================
+ SYSTEM: KLASSE 2: QUASIPERIODIC
+========================================================================
+
+--- BASELINE: woRP ---
+Runtime: 158.35 ms
+Allocs:  3
+Mem:     78.19 KiB
+RR:      0.0412
+DET:     0.9999
+L:       17.7444
+ENTR:    3.0739
+
+>>> EVALUATING: Norbert (Standard) <<<
+  [Benchmark W/O Seed]   9.94 ms | Allocs: 119 | Mem: 84.19 KiB
+  [Benchmark WITH Seed]  9.76 ms | Allocs: 119 | Mem: 84.19 KiB
+  [Exakt Seed 42]        countAll: 803007
+    RR:   0.0367 (Δ: -0.00447)
+    DET:  0.9998 (Δ: -6.0e-5)
+    L:    15.2573 (Δ: -2.48712)
+    ENTR: 3.1021 (Δ: 0.02827)
+  [Statistisch 1000 Läufe]
+    countAll: 830589.1 ± 19312.5
+    RR:   0.0414 ± 0.00823 (Δ: 0.00026)
+    DET:  0.9999 ± 7.0e-5 (Δ: -1.0e-5)
+    L:    17.7582 ± 3.53001 (Δ: 0.01385)
+    ENTR: 3.0415 ± 0.0345 (Δ: -0.03234)
+
+>>> EVALUATING: SMI LFBOTH <<<
+  [Benchmark W/O Seed]   13.65 ms | Allocs: 56 | Mem: 100.79 KiB
+  [Benchmark WITH Seed]  13.44 ms | Allocs: 132 | Mem: 175.99 KiB
+  [Exakt Seed 42]        countAll: 47394
+    RR:   0.0422 (Δ: 0.00103)
+    DET:  1.0 (Δ: 0.00013)
+    L:    18.7877 (Δ: 1.04336)
+    ENTR: 3.043 (Δ: -0.03089)
+  [Statistisch 1000 Läufe]
+    countAll: 48555.1 ± 1967.2
+    RR:   0.0412 ± 0.00146 (Δ: 4.0e-5)
+    DET:  1.0 ± 0.00016 (Δ: 8.0e-5)
+    L:    18.5341 ± 0.64566 (Δ: 0.78967)
+    ENTR: 3.0461 ± 0.04247 (Δ: -0.02779)
+
+>>> EVALUATING: Hybrid1 (dep + womf + wnlfb) <<<
+  [Benchmark W/O Seed]   12.94 ms | Allocs: 8 | Mem: 78.41 KiB
+  [Benchmark WITH Seed]  2.93 ms | Allocs: 8 | Mem: 78.41 KiB
+  [Exakt Seed 42]        countAll: 46465
+    RR:   0.043 (Δ: 0.00187)
+    DET:  0.9995 (Δ: -0.00037)
+    L:    17.5668 (Δ: -0.17763)
+    ENTR: 3.1159 (Δ: 0.04206)
+  [Statistisch 1000 Läufe]
+    countAll: 47781.6 ± 1997.2
+    RR:   0.0418 ± 0.00149 (Δ: 0.00067)
+    DET:  0.9999 ± 0.00022 (Δ: 4.0e-5)
+    L:    18.1977 ± 0.6665 (Δ: 0.45328)
+    ENTR: 3.0491 ± 0.04083 (Δ: -0.0248)
+
+========================================================================
+ SYSTEM: KLASSE 2: PERIODIC (RESONANZ)
+========================================================================
+
+--- BASELINE: woRP ---
+Runtime: 176.9 ms
+Allocs:  3
+Mem:     78.19 KiB
+RR:      0.0499
+DET:     1.0
+L:       5000.0
+ENTR:    6.2126
+
+>>> EVALUATING: SMI LFBOTH <<<
+  [Benchmark W/O Seed]   44.24 ms | Allocs: 84 | Mem: 90.03 KiB
+  [Benchmark WITH Seed]  44.32 ms | Allocs: 128 | Mem: 100.75 KiB
+  [Exakt Seed 42]        countAll: 39808
+    RR:   0.0502 (Δ: 0.00034)
+    DET:  1.0 (Δ: 0.0)
+    L:    5030.3946 (Δ: 30.39462)
+    ENTR: 5.9408 (Δ: -0.2718)
+  [Statistisch 1000 Läufe]
+    countAll: 40678.8 ± 1035.7
+    RR:   0.0492 ± 0.00116 (Δ: -0.00074)
+    DET:  1.0 ± 0.0 (Δ: 0.0)
+    L:    5150.7237 ± 197.07334 (Δ: 150.72375)
+    ENTR: 5.9063 ± 0.0539 (Δ: -0.30629)
+
+>>> EVALUATING: Hybrid1 (dep + womf + wnlfb) <<<
+  [Benchmark W/O Seed]   12.79 ms | Allocs: 8 | Mem: 78.41 KiB
+  [Benchmark WITH Seed]  12.47 ms | Allocs: 8 | Mem: 78.41 KiB
+  [Exakt Seed 42]        countAll: 40377
+    RR:   0.0495 (Δ: -0.00037)
+    DET:  1.0 (Δ: 0.0)
+    L:    5028.2264 (Δ: 28.22643)
+    ENTR: 5.9362 (Δ: -0.27641)
+  [Statistisch 1000 Läufe]
+    countAll: 40049.3 ± 1038.0
+    RR:   0.0499 ± 0.00113 (Δ: 2.0e-5)
+    DET:  1.0 ± 0.0 (Δ: 0.0)
+    L:    5001.4913 ± 169.16868 (Δ: 1.49132)
+    ENTR: 5.914 ± 0.05776 (Δ: -0.29856)
+
+========================================================================
+ SYSTEM: KLASSE 3: HOMOGENOUS RP (WHITE NOISE)
+========================================================================
+
+--- BASELINE: woRP ---
+Runtime: 515.06 ms
+Allocs:  3
+Mem:     78.19 KiB
+RR:      0.31
+DET:     0.6958
+L:       2.8168
+ENTR:    1.2479
+
+>>> EVALUATING: Norbert (Standard) <<<
+  [Benchmark W/O Seed]   0.25 ms | Allocs: 119 | Mem: 84.19 KiB
+  [Benchmark WITH Seed]  0.21 ms | Allocs: 119 | Mem: 84.19 KiB
+  [Exakt Seed 42]        countAll: 7741
+    RR:   0.322 (Δ: 0.01202)
+    DET:  0.6933 (Δ: -0.0025)
+    L:    2.8651 (Δ: 0.04825)
+    ENTR: 1.2522 (Δ: 0.00432)
+  [Statistisch 1000 Läufe]
+    countAll: 8077.3 ± 156.2
+    RR:   0.3115 ± 0.00536 (Δ: 0.0015)
+    DET:  0.6956 ± 0.01025 (Δ: -0.0002)
+    L:    2.8179 ± 0.04114 (Δ: 0.00105)
+    ENTR: 1.245 ± 0.02237 (Δ: -0.00287)
+
+>>> EVALUATING: SMI LFBOTH <<<
+  [Benchmark W/O Seed]   0.36 ms | Allocs: 128 | Mem: 100.75 KiB
+  [Benchmark WITH Seed]  0.28 ms | Allocs: 128 | Mem: 100.75 KiB
+  [Exakt Seed 42]        countAll: 4407
+    RR:   0.4538 (Δ: 0.14382)
+    DET:  0.712 (Δ: 0.01622)
+    L:    2.7778 (Δ: -0.03903)
+    ENTR: 1.2649 (Δ: 0.01695)
+  [Statistisch 1000 Läufe]
+    countAll: 4452.2 ± 74.6
+    RR:   0.4493 ± 0.00755 (Δ: 0.13933)
+    DET:  0.6964 ± 0.00977 (Δ: 0.00059)
+    L:    2.816 ± 0.0272 (Δ: -0.00082)
+    ENTR: 1.2477 ± 0.01767 (Δ: -0.00017)
+
+>>> EVALUATING: Hybrid1 (dep + womf + wnlfb) <<<
+  [Benchmark W/O Seed]   0.3 ms | Allocs: 11 | Mem: 86.31 KiB
+  [Benchmark WITH Seed]  0.32 ms | Allocs: 11 | Mem: 86.31 KiB
+  [Exakt Seed 42]        countAll: 4407
+    RR:   0.4538 (Δ: 0.14382)
+    DET:  0.712 (Δ: 0.01622)
+    L:    2.7778 (Δ: -0.03903)
+    ENTR: 1.2649 (Δ: 0.01695)
+  [Statistisch 1000 Läufe]
+    countAll: 4455.1 ± 74.9
+    RR:   0.4491 ± 0.00755 (Δ: 0.13904)
+    DET:  0.6962 ± 0.01022 (Δ: 0.00043)
+    L:    2.8157 ± 0.02669 (Δ: -0.00115)
+    ENTR: 1.2474 ± 0.01856 (Δ: -0.00052)
+
+========================================================================
+ SYSTEM: KLASSE 4: DRIFT (RANDOM WALK)
+========================================================================
+
+--- BASELINE: woRP ---
+Runtime: 133.57 ms
+Allocs:  3
+Mem:     78.19 KiB
+RR:      0.2159
+DET:     0.989
+L:       34.59
+ENTR:    3.5368
+
+>>> EVALUATING: Norbert (Standard) <<<
+  [Benchmark W/O Seed]   3.36 ms | Allocs: 119 | Mem: 84.19 KiB
+  [Benchmark WITH Seed]  3.46 ms | Allocs: 119 | Mem: 84.19 KiB
+  [Exakt Seed 42]        countAll: 186476
+    RR:   0.2291 (Δ: 0.01326)
+    DET:  0.9888 (Δ: -0.00021)
+    L:    33.1204 (Δ: -1.46956)
+    ENTR: 3.4563 (Δ: -0.08048)
+  [Statistisch 1000 Läufe]
+    countAll: 184749.1 ± 4147.8
+    RR:   0.2376 ± 0.01515 (Δ: 0.02178)
+    DET:  0.9889 ± 0.00085 (Δ: -4.0e-5)
+    L:    34.5725 ± 2.13722 (Δ: -0.01754)
+    ENTR: 3.4521 ± 0.04838 (Δ: -0.08468)
+
+>>> EVALUATING: SMI LFBOTH <<<
+  [Benchmark W/O Seed]   1.71 ms | Allocs: 128 | Mem: 100.77 KiB
+  [Benchmark WITH Seed]  1.43 ms | Allocs: 130 | Mem: 124.86 KiB
+  [Exakt Seed 42]        countAll: 7580
+    RR:   0.2639 (Δ: 0.04799)
+    DET:  0.9905 (Δ: 0.00153)
+    L:    36.9533 (Δ: 2.36327)
+    ENTR: 3.6467 (Δ: 0.10994)
+  [Statistisch 1000 Läufe]
+    countAll: 7377.6 ± 140.6
+    RR:   0.2712 ± 0.00508 (Δ: 0.05531)
+    DET:  0.989 ± 0.00241 (Δ: 5.0e-5)
+    L:    35.0721 ± 1.84726 (Δ: 0.48213)
+    ENTR: 3.5103 ± 0.14717 (Δ: -0.02641)
+
+>>> EVALUATING: Hybrid1 (dep + womf + wnlfb) <<<
+  [Benchmark W/O Seed]   0.78 ms | Allocs: 11 | Mem: 86.31 KiB
+  [Benchmark WITH Seed]  0.79 ms | Allocs: 11 | Mem: 94.12 KiB
+  [Exakt Seed 42]        countAll: 7434
+    RR:   0.269 (Δ: 0.05318)
+    DET:  0.9905 (Δ: 0.00153)
+    L:    39.1028 (Δ: 4.51284)
+    ENTR: 3.6776 (Δ: 0.14084)
+  [Statistisch 1000 Läufe]
+    countAll: 7371.0 ± 138.4
+    RR:   0.2714 ± 0.00509 (Δ: 0.05557)
+    DET:  0.9892 ± 0.00229 (Δ: 0.0002)
+    L:    35.0173 ± 1.84789 (Δ: 0.42735)
+    ENTR: 3.5187 ± 0.14442 (Δ: -0.01806)

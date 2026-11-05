@@ -13,8 +13,10 @@ include("my_sampling.jl")
 # ====================================================================
 @inline function to_svec(x_mat::Matrix{Float64})
     D = size(x_mat, 2)
-    # Transponieren stellt sicher, dass Koordinaten spaltenweise zusammenhängen (Fortran-Layout)
-    return reinterpret(reshape, SVector{D, Float64}, copy(transpose(x_mat)))
+    # Kopieren und Transponieren stellt das Fortran-Memory-Layout sicher
+    mat_t = copy(transpose(x_mat))
+    # vec() flacht die Matrix zwingend zu 1D ab, bevor reinterpret greift
+    return reinterpret(SVector{D, Float64}, vec(mat_t))
 end
 
 # ====================================================================
