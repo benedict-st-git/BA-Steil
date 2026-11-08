@@ -1,5 +1,7 @@
-open("my_test_ausgaben_Unfassbare_optimierungen_an_hybrid1_dep_wnlfb.txt", "w") do io
+open("my_test_ausgaben_2.txt", "w") do io
     redirect_stdout(io) do
-        include("my_test_big_RP_2_ultra_opti.jl")
+        include("my_test_big_RP_5.jl")
     end
 end
+
+# periodizitätsprüfung als externe fnkt und ?alles? womit gerechnet wird als floats und keine ints. keine wurzeln mehr?!?
