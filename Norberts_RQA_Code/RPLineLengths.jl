@@ -143,9 +143,10 @@ This version speeds up diagonal line length computation by:
 The result is an **approximate** histogram that is much faster for large datasets,  
 at the cost of reduced completeness compared to full enumeration.
 """
-function get_hist_diagonal_sampled(x::AbstractVector{<:SVector{Dim, T}}, ε::T, M::Int) where {Dim, T<:AbstractFloat}
-    N = length(x)                     # Number of observations
+function get_hist_diagonal_sampled(x::AbstractMatrix{T}, ε::T, M::Int) where {T<:AbstractFloat}
+    N, dim = size(x)                  # Number of observations and variables
     L_local = zeros(Int, N)           # Histogram for line lengths
+    L_local_old = zeros(Int, N)       # Histogram for line lengths
     ε2 = ε^2                          # Squared threshold (avoids sqrt)
     count = 0                         # Number of valid lines found
     countAll = 0                      # Number of searches
@@ -170,8 +171,14 @@ function get_hist_diagonal_sampled(x::AbstractVector{<:SVector{Dim, T}}, ε::T, 
         i_start = ceil(Int, (1 + sqrt(1 + 8*idx)) / 2)     # Translate linear index to i
         j_start = idx - (i_start - 1) * (i_start - 2) ÷ 2  # Translate linear index to j
 
-        # Check if R(i_start,j_start) = 1 (start point) - via sq_dist
-        if sq_dist(x, i_start, j_start) > ε2
+        #println("i: ", i_start, "  j: ", j_start)
+
+        # Check if R(i_start,j_start) = 1 (start point)
+        D2 = zero(T)
+        @inbounds for k in 1:dim
+            D2 += (x[i_start,k] - x[j_start,k])^2
+        end
+        if D2 > ε2
             continue  # kein Linienstart, nächster Versuch
         end
 
@@ -179,7 +186,11 @@ function get_hist_diagonal_sampled(x::AbstractVector{<:SVector{Dim, T}}, ε::T, 
         if i_start == 1 || j_start == 1
             # We are at the lower border – no previous points
         else
-            if sq_dist(x, i_start-1, j_start-1) <= ε2
+            D2_prev = 0.0
+            @inbounds for k in 1:dim
+                D2_prev += (x[i_start-1,k] - x[j_start-1,k])^2
+            end
+            if D2_prev <= ε2
                 continue  # no begin of a line, try again
             end
         end
@@ -187,7 +198,11 @@ function get_hist_diagonal_sampled(x::AbstractVector{<:SVector{Dim, T}}, ε::T, 
         # Line found, now count line length
         cnt = 0
         @inbounds for offset in 0:(N - i_start)
-            if sq_dist(x, i_start + offset, j_start + offset) <= ε2          # Count points belonging to diagonal
+            D2_line = 0.0
+            for k in 1:dim
+                D2_line += (x[i_start + offset,k] - x[j_start + offset,k])^2
+            end
+            if D2_line <= ε2          # Count points belonging to diagonal
                 cnt += 1              # Extend diagonal
             else
                 break                 # Line ends
@@ -195,13 +210,15 @@ function get_hist_diagonal_sampled(x::AbstractVector{<:SVector{Dim, T}}, ε::T, 
         end
 
         # Store line length to histogram variable
-        if cnt > 0 
+        if cnt > 0 #&& !((i_start, j_start) in seen)
             L_local[cnt] += 1         # Store completed line length
             count += 1                # Count found lines (only counted if a line was found)
 
             sum_n_L  += cnt
             sum_n2_L += cnt >= 2 ? cnt : 0
             sum_L2   += cnt >= 2 ? 1  : 0
+
+
 
             # im Loop, nach count += 1:
             if count % K == 0 && count >= min_samples
@@ -213,6 +230,7 @@ function get_hist_diagonal_sampled(x::AbstractVector{<:SVector{Dim, T}}, ε::T, 
                 push!(det_history, det_val)
                 push!(l_history,   l_val)
 
+
                 if length(det_history) >= W
                     # relative change over last window
                     det_window = det_history[end-W+1:end]
@@ -223,24 +241,21 @@ function get_hist_diagonal_sampled(x::AbstractVector{<:SVector{Dim, T}}, ε::T, 
 
                     # Break if difference is not changing for last K iterations
                     if rel_det < tol && rel_l < tol
+                        # println("Converged after $count samples (rel_det=$rel_det, rel_l=$rel_l)")
                         break
                     end
                 end
             end
         end
+    
     end
 
     return L_local, countAll
 end
 
-
-
-
-
-#function get_hist_diagonal_sampled(x::AbstractMatrix{T}, ε::T, M::Int) where {T<:AbstractFloat}
-#    N, dim = size(x)                  # Number of observations and variables
+#function get_hist_diagonal_sampled(x::AbstractVector{<:SVector{Dim, T}}, ε::T, M::Int) where {Dim, T<:AbstractFloat}
+#    N = length(x)                     # Number of observations
 #    L_local = zeros(Int, N)           # Histogram for line lengths
-#    L_local_old = zeros(Int, N)       # Histogram for line lengths
 #    ε2 = ε^2                          # Squared threshold (avoids sqrt)
 #    count = 0                         # Number of valid lines found
 #    countAll = 0                      # Number of searches
@@ -265,14 +280,8 @@ end
 #        i_start = ceil(Int, (1 + sqrt(1 + 8*idx)) / 2)     # Translate linear index to i
 #        j_start = idx - (i_start - 1) * (i_start - 2) ÷ 2  # Translate linear index to j
 #
-#        #println("i: ", i_start, "  j: ", j_start)
-#
-#        # Check if R(i_start,j_start) = 1 (start point)
-#        D2 = zero(T)
-#        @inbounds for k in 1:dim
-#            D2 += (x[i_start,k] - x[j_start,k])^2
-#        end
-#        if D2 > ε2
+#        # Check if R(i_start,j_start) = 1 (start point) - via sq_dist
+#        if sq_dist(x, i_start, j_start) > ε2
 #            continue  # kein Linienstart, nächster Versuch
 #        end
 #
@@ -280,11 +289,7 @@ end
 #        if i_start == 1 || j_start == 1
 #            # We are at the lower border – no previous points
 #        else
-#            D2_prev = 0.0
-#            @inbounds for k in 1:dim
-#                D2_prev += (x[i_start-1,k] - x[j_start-1,k])^2
-#            end
-#            if D2_prev <= ε2
+#            if sq_dist(x, i_start-1, j_start-1) <= ε2
 #                continue  # no begin of a line, try again
 #            end
 #        end
@@ -292,11 +297,7 @@ end
 #        # Line found, now count line length
 #        cnt = 0
 #        @inbounds for offset in 0:(N - i_start)
-#            D2_line = 0.0
-#            for k in 1:dim
-#                D2_line += (x[i_start + offset,k] - x[j_start + offset,k])^2
-#            end
-#            if D2_line <= ε2          # Count points belonging to diagonal
+#            if sq_dist(x, i_start + offset, j_start + offset) <= ε2          # Count points belonging to diagonal
 #                cnt += 1              # Extend diagonal
 #            else
 #                break                 # Line ends
@@ -304,15 +305,13 @@ end
 #        end
 #
 #        # Store line length to histogram variable
-#        if cnt > 0 #&& !((i_start, j_start) in seen)
+#        if cnt > 0 
 #            L_local[cnt] += 1         # Store completed line length
 #            count += 1                # Count found lines (only counted if a line was found)
 #
 #            sum_n_L  += cnt
 #            sum_n2_L += cnt >= 2 ? cnt : 0
 #            sum_L2   += cnt >= 2 ? 1  : 0
-#
-#
 #
 #            # im Loop, nach count += 1:
 #            if count % K == 0 && count >= min_samples
@@ -324,7 +323,6 @@ end
 #                push!(det_history, det_val)
 #                push!(l_history,   l_val)
 #
-#
 #                if length(det_history) >= W
 #                    # relative change over last window
 #                    det_window = det_history[end-W+1:end]
@@ -335,17 +333,16 @@ end
 #
 #                    # Break if difference is not changing for last K iterations
 #                    if rel_det < tol && rel_l < tol
-#                        # println("Converged after $count samples (rel_det=$rel_det, rel_l=$rel_l)")
 #                        break
 #                    end
 #                end
 #            end
 #        end
-#    
 #    end
 #
 #    return L_local, countAll
 #end
+#
 
 
 """

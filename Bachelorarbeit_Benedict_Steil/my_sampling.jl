@@ -2,8 +2,6 @@
 using Statistics
 using StaticArrays
 using Random
-#xxxx
-
 
 
 """
@@ -1507,7 +1505,7 @@ end
 Sampling 4.2.1: hybrid1_dep ohne max_fails (und andere deps?)
 """
 
-function hybrid1_dep_womf(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true, check_periodicity::Bool = true) where {T<:AbstractFloat}
+function hybrid1_dep_womf(x::AbstractMatrix{T}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true, check_periodicity::Bool = true, true_line_test::Bool = false) where {T<:AbstractFloat}
     N, dim = size(x)                  # Number of observations and variables
     L_local = zeros(Float64, N)           # Histogram for line lengths - mit typ float64, wegen korrektur in zählung der linien bestimmter länge (1/cnt)
     # L_local_old = zeros(Int, N)       # Histogram for line lengths
@@ -1867,9 +1865,17 @@ end
 """
 Sampling 4.2.1.1: hybrid1_dep ohne max_fails (und andere deps?) wnlfb
 """
-function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true, rng::AbstractRNG = Random.default_rng()) where {T<:AbstractFloat}
+function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true, epsilon_quantile::Bool = false, rng::AbstractRNG = Random.default_rng()) where {T<:AbstractFloat}
     N = length(x)                  
-    ε2 = ε^2                          
+    
+    # Optionales Umschalten zwischen absolutem Epsilon und Quantil-Epsilon
+    if epsilon_quantile == true
+        target_rr = 0.03  # laut literatur zwischen 2 und 5% für alle systeme??
+        ε2 = estimate_epsilon_sq_by_rr(rng, x, target_rr, samples=100000)
+        ε = sqrt(ε2) # Nur für Metriken oder Logging, falls das lineare Epsilon benötigt wird
+    else
+        ε2 = ε^2 # Fallback auf statisches Epsilon
+    end
     
     # 1. Periodizitäts-Parameter vorbereiten
     check_length = clamp(N ÷ 20, 15, 100) 
@@ -1886,9 +1892,9 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
 
     # 3. Dispatch (Maximal 5-6 Argumente -> bleibt zu 100% in den CPU-Registern!)
     if is_periodic
-        return rand_sample_lfb_svec(rng, x, ε2, M)
+        return rand_sample_lfb_svec(rng, x, ε2, M, W_theiler, W_soujorn)
     else
-        return smi_lfb_svec(rng, x, ε2, M, estimated_RR, s)
+        return smi_lfb_svec(rng, x, ε2, M, estimated_RR, s, W_theiler, W_soujorn)
     end
 end
 
@@ -3000,7 +3006,7 @@ end
 """
 Zusatzfunktion 6: rand_sample_lfb_svec
 """
-function rand_sample_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M::Int) where {T<:AbstractFloat}
+function rand_sample_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M::Int, W_theiler::Int, W_soujourn::Int, true_line_test::Bool = false) where {T<:AbstractFloat}
     N = length(x)
     L_local = zeros(Float64, N)
     
@@ -3022,7 +3028,7 @@ function rand_sample_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε
     count = 0                         
     countAll = 0 
 
-    ?@inbounds? while count < M 
+    while count < M # weshalb kein inbounds oder so?
         if countAll > max_searches; break; end
         countAll += 1                 
 
@@ -3043,7 +3049,7 @@ function rand_sample_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε
         
         if cnt > 0 
             weight = 1.0 / cnt
-            L_local[cnt] += weight    
+            @inbounds L_local[cnt] += weight    
             count += 1                
 
             is_long = cnt >= 2
@@ -3051,8 +3057,8 @@ function rand_sample_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε
             sum_L2   += is_long * weight
 
             if count % K == 0 && count >= min_samples
-                det_ring[ring_idx] = sum_n2_L / count
-                l_ring[ring_idx]   = sum_n2_L / sum_L2
+                @inbounds det_ring[ring_idx] = sum_n2_L / count
+                @inbounds l_ring[ring_idx]   = sum_n2_L / sum_L2
                 ring_idx = (ring_idx % W_conv) + 1
                 history_count += 1
                 
@@ -3069,7 +3075,7 @@ end
 """
 Zusatzfunktion 7: smi_lfb_svec
 """
-function smi_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M::Int, estimated_RR::Float64, s::Union{Float64, Nothing}) where {T<:AbstractFloat}
+function smi_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M::Int, estimated_RR::Float64, s::Union{Float64, Nothing}, W_theiler::Int, W_soujourn::Int) where {T<:AbstractFloat}
     N = length(x)
     L_local = zeros(Float64, N)
     
@@ -3082,8 +3088,8 @@ function smi_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M:
     min_samples = 500   
     
     # High-Performance Float Konstanten NUR hier! weshalb? wozu den kram anyways??
-    N_const = 2.0 * N - 1.0
-    N_const_sq = N_const^2
+    N2_1 = 2.0 * N - 1.0
+    N2_1_sq = Float64(N2_1)^2
     
     det_ring = zeros(Float64, W_conv)
     l_ring   = zeros(Float64, W_conv)
@@ -3095,20 +3101,20 @@ function smi_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M:
     count = 0                         
     countAll = 0 
 
-    actual_s = (s !== nothing) ? s : (estimated_RR < 0.05 ? 5.0 : (estimated_RR > 0.2 ? 0.5 : 1.0))
-    estimated_tries_per_box = (estimated_RR < 0.05 ? 50 : (estimated_RR > 0.2 ? 12 : 24))
+    @inbounds actual_s = (s !== nothing) ? s : (estimated_RR < 0.05 ? 5.0 : (estimated_RR > 0.2 ? 0.5 : 1.0))
+    @inbounds estimated_tries_per_box = (estimated_RR < 0.05 ? 50 : (estimated_RR > 0.2 ? 12 : 24))
 
-    s_tilde = M * actual_s
-    num_boxes = min(total_pairs, max(1, round(Int, s_tilde)))
-    box_length_dyn = total_pairs ÷ num_boxes 
+    @inbounds s_tilde = M * actual_s
+    @inbounds num_boxes = min(total_pairs, max(1, round(Int, s_tilde)))
+    @inbounds box_length_dyn = total_pairs ÷ num_boxes 
     
-    active_boxs = Vector{Int}(undef, num_boxes)
-    active_box_count = 0
-    box_lower_bounds = Vector{Int}(undef, num_boxes)
-    box_upper_bounds = Vector{Int}(undef, num_boxes)
+    @inbounds active_boxs = Vector{Int}(undef, num_boxes)
+    @inbounds active_box_count = 0
+    @inbounds box_lower_bounds = Vector{Int}(undef, num_boxes)
+    @inbounds box_upper_bounds = Vector{Int}(undef, num_boxes)
 
-
-    ?@inbounds? for current_box in 1:num_boxes                     # hier noch W_theiler und ?unten dann erst? W_soujorn integrieren! indem man beim durchgehen der zu prüfenden boxs W_theiler und W_soujorn berücksichtigt?! in dem die ersten W_theiler diagonalen also alles d<W_theiler tabu sind?! und W_soujorn dann indem wir immer, wenn auf einer diagonalen maximal xx mal einen rand punkt auf der diag samplen und sobald einer schwarz ist den eine box aktiviert worden ist auf dieser diagonale in beide richtungen die boxs prüfen, wobei in beide richtungen ein eigenes max_misses läuft und nach mehr als einer box nicht aktiviert wird abgebrochen in die jeweilige richtung und wenn mehr als  box auf déiner diagonalen aktiviert worden ist, also ganz einfach, wenn eine box in der following schleife aktiviert wird in einer richtung wird, falls noch nicht geschehen long_diag auf true gesetzt und dann also alle boxen auf der diag aktiviert und . heißt alo auch wir gehen die diagonalen durch beim box aktivieren (box aktivieren sollte eine eigene funktion sein oder? noch mehr externe funktionen noch in den beiden samplings definieren?) und zwar startend von d = W_theiler+1 (sollten wir dann trotzdessen die boxs im rqa sampling mit rand durchgehen oder ist dann hintereinander besser? ne?! dann finden wir ja wieder hintereinander immer wieder die selbe linie?!)
+    
+    @inbounds for current_box in 1:num_boxes                     # hier noch W_theiler und ?unten dann erst? W_soujorn integrieren! indem man beim durchgehen der zu prüfenden boxs W_theiler und W_soujorn berücksichtigt?! in dem die ersten W_theiler diagonalen also alles d<W_theiler tabu sind?! und W_soujorn dann indem wir immer, wenn auf einer diagonalen maximal xx mal einen rand punkt auf der diag samplen und sobald einer schwarz ist den eine box aktiviert worden ist auf dieser diagonale in beide richtungen die boxs prüfen, wobei in beide richtungen ein eigenes max_misses läuft und nach mehr als einer box nicht aktiviert wird abgebrochen in die jeweilige richtung und wenn mehr als  box auf déiner diagonalen aktiviert worden ist, also ganz einfach, wenn eine box in der following schleife aktiviert wird in einer richtung wird, falls noch nicht geschehen long_diag auf true gesetzt und dann also alle boxen auf der diag aktiviert und . heißt alo auch wir gehen die diagonalen durch beim box aktivieren (box aktivieren sollte eine eigene funktion sein oder? noch mehr externe funktionen noch in den beiden samplings definieren?) und zwar startend von d = W_theiler+1 (sollten wir dann trotzdessen die boxs im rqa sampling mit rand durchgehen oder ist dann hintereinander besser? ne?! dann finden wir ja wieder hintereinander immer wieder die selbe linie?!)
         l_b = (current_box-1) * box_length_dyn + 1
         u_b = current_box == num_boxes ? total_pairs : current_box * box_length_dyn
         box_lower_bounds[current_box] = l_b
@@ -3116,7 +3122,10 @@ function smi_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M:
 
         for _ in 1:estimated_tries_per_box 
             idx = rand(rng, l_b:u_b)     
-            d = ceil(Int, (N_const - sqrt(N_const_sq - 8.0 * Float64(idx))) * 0.5)    # wozu ceil? die mathe hier und bei folgenden zeilen?
+            #d = ceil(Int, (N2_1 - sqrt(N2_1_sq - 8.0 * Float64(idx))) * 0.5)    # wozu ceil? die mathe hier und bei folgenden zeilen?
+            val = N2_1_sq - 8.0 * idx # idx wird automatisch schnell zu Float64 promoted
+            S_int = trunc(Int, sqrt(val))
+            d = (N2_1 - S_int + 1) >> 1
             d_minus = d - 1
             previous_elements = d_minus * N - (d_minus * d >> 1)
             j_start = idx - previous_elements     
@@ -3133,14 +3142,16 @@ function smi_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M:
     if active_box_count == 0; return L_local, countAll; end  # alles leer returnen, da eh nichts geprüft würde, keine boxs aktiv, da wohl RP zu leer oder ε zu klein, nicht ein schwarzer punkt in irgendeiner box gefunden.
 
     sum_n_L = 0.0
-    while count < M
+    while count < M # weshalb kein inbounds oder so?
         if countAll > max_searches; break; end
-        current_box = active_boxs[rand(rng, 1:active_box_count)]   # um dicke linien und verweilungsartefakte, soujorn kram zu vermeiden zufällige boxs und nicht der reihe nach
+        @inbounds current_box = active_boxs[rand(rng, 1:active_box_count)]   # um dicke linien und verweilungsartefakte, soujorn kram zu vermeiden zufällige boxs und nicht der reihe nach
         
         countAll += 1                 
-        idx = rand(rng, box_lower_bounds[current_box]:box_upper_bounds[current_box])     
+        @inbounds idx = rand(rng, box_lower_bounds[current_box]:box_upper_bounds[current_box])     
 
-        d = ceil(Int, (N_const - sqrt(N_const_sq - 8.0 * Float64(idx))) * 0.5)    
+        val = N2_1_sq - 8.0 * idx # idx wird automatisch schnell zu Float64 promoted
+        S_int = trunc(Int, sqrt(val))
+        d = (N2_1 - S_int + 1) >> 1   
         d_minus = d - 1
         previous_elements = d_minus * N - (d_minus * d >> 1)
         j_start = idx - previous_elements     
@@ -3158,7 +3169,7 @@ function smi_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M:
         
         if cnt > 0 
             weight = 1.0 / cnt
-            L_local[cnt] += weight         
+            @inbounds L_local[cnt] += weight         
             count += 1                
             
             sum_n_L  += cnt * weight
@@ -3167,8 +3178,8 @@ function smi_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M:
             sum_L2   += is_long * weight
 
             if count % K == 0 && count >= min_samples
-                det_ring[ring_idx] = sum_n2_L / sum_n_L
-                l_ring[ring_idx]   = sum_n2_L / sum_L2
+                @inbounds det_ring[ring_idx] = sum_n2_L / sum_n_L
+                @inbounds l_ring[ring_idx]   = sum_n2_L / sum_L2
                 ring_idx = (ring_idx % W_conv) + 1
                 history_count += 1
                 
@@ -3179,6 +3190,102 @@ function smi_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M:
         end          
     end
 
-    countAll_correct_scaled = div(Int128(countAll) * num_boxes, active_box_count)
+    @inbounds countAll_correct_scaled = div(Int128(countAll) * num_boxes, active_box_count)
     return L_local, countAll_correct_scaled
+end
+
+"""
+Zusatzfunktion 8:
+"""
+
+
+
+"""
+Zusatzfunktion 9: estimate_epsilon_sq_by_rr(rng, x, target_rr; samples)
+
+Berechnet das optimale ε^2, sodass die Rekurrenzmatrix eine vorgegebene 
+Target-Recurrence-Rate (z.B. 0.05 für 5%) aufweist.
+Nutzt einen hocheffizienten Monte-Carlo-Quantil-Schätzer.
+"""
+function estimate_epsilon_sq_by_rr(rng::AbstractRNG, x::AbstractVector{<:SVector}, target_rr::Float64; samples::Int=100000)
+    N = length(x)
+    total_pairs = (N * (N - 1)) >> 1
+    
+    # Wenn die Matrix sehr klein ist, nehmen wir alle Paare, sonst die festgelegte Sample-Zahl
+    actual_samples = min(samples, total_pairs)
+    
+    # Pre-Allokation für maximale Geschwindigkeit
+    D2_samples = Vector{Float64}(undef, actual_samples)
+    
+    count = 1
+    @inbounds while count <= actual_samples
+        # 1. Uniformes Ziehen im oberen Dreieck ohne teure Wurzel-Mathematik (Index-Mapping)
+        u1 = rand(rng, 1:N)
+        u2 = rand(rng, 1:N)
+        
+        if u1 == u2
+            continue # LOI ignorieren
+        end
+        
+        # minmax sorgt dafür, dass j immer die Spalte (kleiner) und i die Zeile (größer) ist
+        j, i = minmax(u1, u2)
+        
+        # 2. Quadrierte Distanz berechnen
+        D2_samples[count] = sq_dist(x, i, j)
+        count += 1
+    end
+    
+    # 3. Das Quantil bestimmen. 
+    # quantile! sortiert/mutiert das Array in-place (O(N) Zeitkomplexität im Best-Case)
+    # und ist deutlich schneller als eine vollständige Sortierung (sort!).
+    optimal_eps2 = quantile!(D2_samples, target_rr)
+    
+    return optimal_eps2
+end
+
+"""
+get_hist_diagonal_woRP_sceletonization
+
+woRP with true_line_test
+"""
+
+function get_hist_diagonal_woRP(x, ε, true_line_test = true)
+    N, dim = size(x)                  # Number of observations and variables
+    L = zeros(Int, N)                 # Histogram for line lengths
+    ε2 = ε^2                          # Precompute squared threshold (avoids sqrt)
+
+    @inbounds for i in 2:N # start with 2 to remove main diagonal
+        cnt = 0
+        @inbounds for j in 1:(N - i + 1)
+            # Direct squared Euclidean distance computation
+
+            # variant 1 (needs to replace test D2 < ε2 with D < ε)
+#             @views diff .= x[i + j - 1, :] .- x[j, :]  # Avoid creating a new array
+#             #diff .= x[i + j - 1, :] .- x[j, :]  ## Causes many allocations
+#             D = norm(diff)  # Reuse `diff` instead of allocating new memory
+            
+            # variant 2 (needs to replace test D2 < ε2 with D < ε)
+            # D = norm(x[i + j - 1, :] - x[j, :])
+            
+            # variant 3
+            D2 = 0.0
+            @inbounds for k in 1:dim
+                D2 += (x[i + j - 1, k] - x[j, k])^2
+            end
+
+            if D2 <= ε2
+                cnt += 1              # Extend current diagonal
+            else
+                if cnt > 0
+                    L[cnt] += 1       # Store completed line length
+                    cnt = 0
+                end
+            end
+        end
+        if cnt > 0
+            L[cnt] += 1
+        end
+    end
+
+    return L
 end
