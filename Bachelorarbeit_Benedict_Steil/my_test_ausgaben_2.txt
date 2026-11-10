@@ -1,0 +1,672 @@
+
+========================================================================
+ SYSTEM: KLASSE 1: CHAOS (ROESSLER SYSTEM)
+========================================================================
+
+--- BASELINE: woRP_2 (Standard, apply_correction=false) ---
+Runtime: 70.31 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.08278
+DET:     0.99844
+L:       23.77646
+ENTR:    3.86486
+
+--- BASELINE: woRP_2 (Sceletonized, apply_correction=true) ---
+Runtime: 80.74 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.0206
+DET:     0.97338
+L:       13.11666
+ENTR:    2.80766
+
+>>> EVALUATING: Norbert (Matrix) <<<
+  [Benchmark W/O Seed]   9.02 ms | Allocs: 105 | Mem: 161.69 KiB
+  [Benchmark WITH Seed]  9.28 ms | Allocs: 121 | Mem: 162.36 KiB
+  [Exakt Seed 42]        countAll: 519978
+    RR:   0.0834 (Δ: 0.00062)
+    DET:  0.9984 (Δ: 0.0)
+    L:    24.2745 (Δ: 0.49806)
+    ENTR: 3.8684 (Δ: 0.00354)
+  [Statistisch 30 Läufe]
+    countAll: 511157.8 ± 10421.4
+    RR:   0.0833 ± 0.00274 (Δ: 0.0005)
+    DET:  0.9984 ± 0.00022 (Δ: -2.0e-5)
+    L:    23.8318 ± 0.53742 (Δ: 0.05535)
+    ENTR: 3.8385 ± 0.02261 (Δ: -0.02636)
+
+>>> EVALUATING: SMI LFBOTH (Matrix) <<<
+  [Benchmark W/O Seed]   1.27 ms | Allocs: 68 | Mem: 98.0 KiB
+  [Benchmark WITH Seed]  1.18 ms | Allocs: 128 | Mem: 100.75 KiB
+  [Exakt Seed 42]        countAll: 23237
+    RR:   0.0861 (Δ: 0.00329)
+    DET:  0.9985 (Δ: 6.0e-5)
+    L:    24.059 (Δ: 0.28256)
+    ENTR: 3.8493 (Δ: -0.01551)
+  [Statistisch 30 Läufe]
+    countAll: 22755.7 ± 434.5
+    RR:   0.0879 ± 0.00168 (Δ: 0.00515)
+    DET:  0.9986 ± 0.00076 (Δ: 0.00019)
+    L:    24.5427 ± 0.64841 (Δ: 0.76623)
+    ENTR: 3.8504 ± 0.01688 (Δ: -0.01446)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=false] <<<
+  [Benchmark W/O Seed]   0.88 ms | Allocs: 10 | Mem: 94.08 KiB
+  [Benchmark WITH Seed]  0.87 ms | Allocs: 10 | Mem: 94.08 KiB
+  [Exakt Seed 42]        countAll: 23236
+    RR:   0.0861 (Δ: 0.0033)
+    DET:  0.9985 (Δ: 6.0e-5)
+    L:    24.059 (Δ: 0.28256)
+    ENTR: 3.8493 (Δ: -0.01551)
+  [Statistisch 30 Läufe]
+    countAll: 22907.9 ± 368.2
+    RR:   0.0873 ± 0.00141 (Δ: 0.00455)
+    DET:  0.9988 ± 0.00065 (Δ: 0.00034)
+    L:    24.504 ± 0.65382 (Δ: 0.72755)
+    ENTR: 3.8525 ± 0.01771 (Δ: -0.01231)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=true] <<<
+  [Benchmark W/O Seed]   1.7 ms | Allocs: 10 | Mem: 94.08 KiB
+  [Benchmark WITH Seed]  1.69 ms | Allocs: 10 | Mem: 94.08 KiB
+  [Exakt Seed 42]        countAll: 116163
+    RR:   0.0172 (Δ: -0.00338)
+    DET:  0.9985 (Δ: 0.02512)
+    L:    33.5274 (Δ: 20.41076)
+    ENTR: 3.639 (Δ: 0.83134)
+  [Statistisch 30 Läufe]
+    countAll: 115044.6 ± 3370.9
+    RR:   0.0174 ± 0.00049 (Δ: -0.00323)
+    DET:  0.9981 ± 0.00091 (Δ: 0.02468)
+    L:    33.6308 ± 0.89315 (Δ: 20.51416)
+    ENTR: 3.607 ± 0.03966 (Δ: 0.79933)
+
+========================================================================
+ SYSTEM: KLASSE 1: CHAOS (LORENZ SYSTEM)
+========================================================================
+
+--- BASELINE: woRP_2 (Standard, apply_correction=false) ---
+Runtime: 77.84 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.1205
+DET:     0.9999
+L:       40.53191
+ENTR:    4.52422
+
+--- BASELINE: woRP_2 (Sceletonized, apply_correction=true) ---
+Runtime: 87.62 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.00625
+DET:     0.92306
+L:       4.82141
+ENTR:    1.99431
+
+>>> EVALUATING: Norbert (Matrix) <<<
+  [Benchmark W/O Seed]   11.43 ms | Allocs: 109 | Mem: 161.87 KiB
+  [Benchmark WITH Seed]  12.05 ms | Allocs: 121 | Mem: 162.36 KiB
+  [Exakt Seed 42]        countAll: 617671
+    RR:   0.1171 (Δ: -0.00341)
+    DET:  0.9999 (Δ: -4.0e-5)
+    L:    39.5646 (Δ: -0.9673)
+    ENTR: 4.416 (Δ: -0.10824)
+  [Statistisch 30 Läufe]
+    countAll: 593943.9 ± 15778.5
+    RR:   0.1244 ± 0.00618 (Δ: 0.00393)
+    DET:  0.9999 ± 3.0e-5 (Δ: -0.0)
+    L:    40.5739 ± 1.50639 (Δ: 0.04195)
+    ENTR: 4.4361 ± 0.03249 (Δ: -0.08808)
+
+>>> EVALUATING: SMI LFBOTH (Matrix) <<<
+  [Benchmark W/O Seed]   1.56 ms | Allocs: 106 | Mem: 123.78 KiB
+  [Benchmark WITH Seed]  1.59 ms | Allocs: 130 | Mem: 124.86 KiB
+  [Exakt Seed 42]        countAll: 15614
+    RR:   0.1281 (Δ: 0.00759)
+    DET:  0.999 (Δ: -0.0009)
+    L:    41.1092 (Δ: 0.57725)
+    ENTR: 4.4697 (Δ: -0.05449)
+  [Statistisch 30 Läufe]
+    countAll: 15241.5 ± 308.5
+    RR:   0.1313 ± 0.00269 (Δ: 0.01077)
+    DET:  0.9999 ± 0.00017 (Δ: 3.0e-5)
+    L:    41.4262 ± 1.30739 (Δ: 0.89433)
+    ENTR: 4.4742 ± 0.02866 (Δ: -0.04999)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=false] <<<
+  [Benchmark W/O Seed]   1.12 ms | Allocs: 10 | Mem: 94.08 KiB
+  [Benchmark WITH Seed]  0.97 ms | Allocs: 10 | Mem: 94.08 KiB
+  [Exakt Seed 42]        countAll: 15614
+    RR:   0.1281 (Δ: 0.00759)
+    DET:  0.999 (Δ: -0.0009)
+    L:    41.1092 (Δ: 0.57725)
+    ENTR: 4.4697 (Δ: -0.05449)
+  [Statistisch 30 Läufe]
+    countAll: 15416.7 ± 309.4
+    RR:   0.1298 ± 0.00264 (Δ: 0.00928)
+    DET:  0.9999 ± 0.00017 (Δ: 3.0e-5)
+    L:    41.3469 ± 1.476 (Δ: 0.81495)
+    ENTR: 4.4745 ± 0.03108 (Δ: -0.04969)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=true] <<<
+  [Benchmark W/O Seed]   6.7 ms | Allocs: 10 | Mem: 94.08 KiB
+  [Benchmark WITH Seed]  6.61 ms | Allocs: 10 | Mem: 94.08 KiB
+  [Exakt Seed 42]        countAll: 1538404
+    RR:   0.0013 (Δ: -0.00495)
+    DET:  1.0 (Δ: 0.07694)
+    L:    56.1586 (Δ: 51.33714)
+    ENTR: 4.714 (Δ: 2.71965)
+  [Statistisch 30 Läufe]
+    countAll: 1.4599874e6 ± 107991.1
+    RR:   0.0014 ± 0.0001 (Δ: -0.00487)
+    DET:  0.9998 ± 0.00027 (Δ: 0.07677)
+    L:    58.0897 ± 2.80682 (Δ: 53.26834)
+    ENTR: 4.7288 ± 0.04564 (Δ: 2.73447)
+
+========================================================================
+ SYSTEM: KLASSE 2: BE+PD PERIODIC (HARMONIC OSCILLATOR)
+========================================================================
+
+--- BASELINE: woRP_2 (Standard, apply_correction=false) ---
+Runtime: 42.0 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.1687
+DET:     0.9999
+L:       6.37015
+ENTR:    1.92675
+
+--- BASELINE: woRP_2 (Sceletonized, apply_correction=true) ---
+Runtime: 91.71 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.02993
+DET:     0.50332
+L:       48.53134
+ENTR:    0.16095
+
+>>> EVALUATING: Norbert (Matrix) <<<
+  [Benchmark W/O Seed]   1.49 ms | Allocs: 69 | Mem: 159.98 KiB
+  [Benchmark WITH Seed]  1.3 ms | Allocs: 121 | Mem: 162.36 KiB
+  [Exakt Seed 42]        countAll: 68745
+    RR:   0.3102 (Δ: 0.1415)
+    DET:  0.9999 (Δ: 2.0e-5)
+    L:    11.98 (Δ: 5.60983)
+    ENTR: 1.9879 (Δ: 0.06115)
+  [Statistisch 30 Läufe]
+    countAll: 67255.4 ± 1334.1
+    RR:   0.1583 ± 0.07199 (Δ: -0.01042)
+    DET:  0.9998 ± 0.00014 (Δ: -6.0e-5)
+    L:    5.9685 ± 2.73113 (Δ: -0.40161)
+    ENTR: 1.9148 ± 0.02489 (Δ: -0.01194)
+
+>>> EVALUATING: SMI LFBOTH (Matrix) <<<
+  [Benchmark W/O Seed]   13.12 ms | Allocs: 114 | Mem: 100.75 KiB
+  [Benchmark WITH Seed]  12.32 ms | Allocs: 130 | Mem: 124.87 KiB
+  [Exakt Seed 42]        countAll: 11038
+    RR:   0.1812 (Δ: 0.01249)
+    DET:  1.0 (Δ: 0.0001)
+    L:    6.7648 (Δ: 0.39461)
+    ENTR: 2.0041 (Δ: 0.07739)
+  [Statistisch 30 Läufe]
+    countAll: 11066.3 ± 436.4
+    RR:   0.181 ± 0.00684 (Δ: 0.01229)
+    DET:  0.9999 ± 0.00024 (Δ: 0.0)
+    L:    7.0248 ± 0.41789 (Δ: 0.6547)
+    ENTR: 2.0369 ± 0.06582 (Δ: 0.11011)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=false] <<<
+  [Benchmark W/O Seed]   4.75 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Benchmark WITH Seed]  3.64 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Exakt Seed 42]        countAll: 10466
+    RR:   0.1911 (Δ: 0.0224)
+    DET:  0.9995 (Δ: -0.0004)
+    L:    6.4972 (Δ: 0.12709)
+    ENTR: 1.922 (Δ: -0.00474)
+  [Statistisch 30 Läufe]
+    countAll: 10501.1 ± 179.6
+    RR:   0.1905 ± 0.00324 (Δ: 0.02181)
+    DET:  1.0 ± 0.00015 (Δ: 5.0e-5)
+    L:    6.3592 ± 0.16542 (Δ: -0.01091)
+    ENTR: 1.9199 ± 0.02982 (Δ: -0.00683)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=true] <<<
+  [Benchmark W/O Seed]   6.32 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Benchmark WITH Seed]  5.54 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Exakt Seed 42]        countAll: 64288
+    RR:   0.0311 (Δ: 0.00118)
+    DET:  0.999 (Δ: 0.49568)
+    L:    6.3814 (Δ: -42.14993)
+    ENTR: 1.3512 (Δ: 1.19027)
+  [Statistisch 30 Läufe]
+    countAll: 64072.3 ± 1490.1
+    RR:   0.0312 ± 0.00072 (Δ: 0.0013)
+    DET:  0.9995 ± 0.00052 (Δ: 0.49621)
+    L:    6.3761 ± 0.18212 (Δ: -42.1552)
+    ENTR: 1.3232 ± 0.03149 (Δ: 1.16223)
+
+========================================================================
+ SYSTEM: KLASSE 2: PD(unrecognizable) PERIODIC
+========================================================================
+
+--- BASELINE: woRP_2 (Standard, apply_correction=false) ---
+Runtime: 47.64 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.06373
+DET:     1.0
+L:       4985.94836
+ENTR:    6.4599
+
+--- BASELINE: woRP_2 (Sceletonized, apply_correction=true) ---
+Runtime: 50.61 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.01582
+DET:     0.9997
+L:       4973.46541
+ENTR:    2.69782
+
+>>> EVALUATING: SMI LFBOTH (Matrix) <<<
+  [Benchmark W/O Seed]   39.64 ms | Allocs: 126 | Mem: 90.03 KiB
+  [Benchmark WITH Seed]  37.9 ms | Allocs: 126 | Mem: 90.03 KiB
+  [Exakt Seed 42]        countAll: 32242
+    RR:   0.062 (Δ: -0.0017)
+    DET:  1.0 (Δ: 0.0)
+    L:    4668.7079 (Δ: -317.24044)
+    ENTR: 6.0233 (Δ: -0.43657)
+  [Statistisch 30 Läufe]
+    countAll: 31457.8 ± 474.1
+    RR:   0.0636 ± 0.00096 (Δ: -0.00014)
+    DET:  1.0 ± 0.0 (Δ: 0.0)
+    L:    5076.9573 ± 325.76299 (Δ: 91.00889)
+    ENTR: 6.0664 ± 0.21896 (Δ: -0.39349)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=false] <<<
+  [Benchmark W/O Seed]   13.72 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Benchmark WITH Seed]  12.03 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Exakt Seed 42]        countAll: 32267
+    RR:   0.062 (Δ: -0.00174)
+    DET:  1.0 (Δ: 0.0)
+    L:    5133.5383 (Δ: 147.58991)
+    ENTR: 6.1458 (Δ: -0.31409)
+  [Statistisch 30 Läufe]
+    countAll: 31413.3 ± 649.5
+    RR:   0.0637 ± 0.0013 (Δ: -3.0e-5)
+    DET:  1.0 ± 0.0 (Δ: 0.0)
+    L:    5007.509 ± 142.75793 (Δ: 21.56068)
+    ENTR: 6.0859 ± 0.04241 (Δ: -0.37403)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=true] <<<
+  [Benchmark W/O Seed]   13.52 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Benchmark WITH Seed]  13.2 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Exakt Seed 42]        countAll: 122443
+    RR:   0.0163 (Δ: 0.00051)
+    DET:  1.0 (Δ: 0.0003)
+    L:    5048.9206 (Δ: 75.45516)
+    ENTR: 4.9802 (Δ: 2.28238)
+  [Statistisch 30 Läufe]
+    countAll: 126627.1 ± 3280.3
+    RR:   0.0158 ± 0.00037 (Δ: -5.0e-5)
+    DET:  1.0 ± 0.0 (Δ: 0.0003)
+    L:    4964.8365 ± 236.21826 (Δ: -8.62896)
+    ENTR: 4.9439 ± 0.08771 (Δ: 2.24605)
+
+========================================================================
+ SYSTEM: KLASSE 2: PD(noise) PERIODIC
+========================================================================
+
+--- BASELINE: woRP_2 (Standard, apply_correction=false) ---
+Runtime: 62.13 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.06538
+DET:     0.90557
+L:       9.45768
+ENTR:    1.97092
+
+--- BASELINE: woRP_2 (Sceletonized, apply_correction=true) ---
+Runtime: 81.88 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.02082
+DET:     0.48928
+L:       2.63956
+ENTR:    0.87091
+
+>>> EVALUATING: Norbert (Matrix) <<<
+  [Benchmark W/O Seed]   2.27 ms | Allocs: 121 | Mem: 162.36 KiB
+  [Benchmark WITH Seed]  2.25 ms | Allocs: 121 | Mem: 162.36 KiB
+  [Exakt Seed 42]        countAll: 149784
+    RR:   0.0741 (Δ: 0.00876)
+    DET:  0.9142 (Δ: 0.00858)
+    L:    10.5005 (Δ: 1.04282)
+    ENTR: 2.0047 (Δ: 0.03378)
+  [Statistisch 30 Läufe]
+    countAll: 151475.2 ± 3806.4
+    RR:   0.0654 ± 0.00642 (Δ: 5.0e-5)
+    DET:  0.9029 ± 0.01089 (Δ: -0.00269)
+    L:    9.212 ± 0.85609 (Δ: -0.2457)
+    ENTR: 1.926 ± 0.04978 (Δ: -0.04495)
+
+>>> EVALUATING: SMI LFBOTH (Matrix) <<<
+  [Benchmark W/O Seed]   1.26 ms | Allocs: 126 | Mem: 90.03 KiB
+  [Benchmark WITH Seed]  1.26 ms | Allocs: 126 | Mem: 90.03 KiB
+  [Exakt Seed 42]        countAll: 29062
+    RR:   0.0688 (Δ: 0.00343)
+    DET:  0.91 (Δ: 0.00443)
+    L:    9.506 (Δ: 0.04837)
+    ENTR: 1.9908 (Δ: 0.01984)
+  [Statistisch 30 Läufe]
+    countAll: 29015.3 ± 545.0
+    RR:   0.069 ± 0.00129 (Δ: 0.00357)
+    DET:  0.9101 ± 0.0052 (Δ: 0.00448)
+    L:    9.5086 ± 0.3784 (Δ: 0.05094)
+    ENTR: 1.997 ± 0.04027 (Δ: 0.02608)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=false] <<<
+  [Benchmark W/O Seed]   0.53 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Benchmark WITH Seed]  0.53 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Exakt Seed 42]        countAll: 29363
+    RR:   0.0681 (Δ: 0.00273)
+    DET:  0.9195 (Δ: 0.01393)
+    L:    9.3655 (Δ: -0.09213)
+    ENTR: 2.0624 (Δ: 0.0915)
+  [Statistisch 30 Läufe]
+    countAll: 28691.4 ± 560.6
+    RR:   0.0697 ± 0.00135 (Δ: 0.00435)
+    DET:  0.9047 ± 0.00703 (Δ: -0.00083)
+    L:    9.5651 ± 0.36825 (Δ: 0.1074)
+    ENTR: 1.9569 ± 0.05122 (Δ: -0.01402)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=true] <<<
+  [Benchmark W/O Seed]   1.49 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Benchmark WITH Seed]  1.41 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Exakt Seed 42]        countAll: 93365
+    RR:   0.0214 (Δ: 0.0006)
+    DET:  0.897 (Δ: 0.40772)
+    L:    14.7818 (Δ: 12.14226)
+    ENTR: 1.6845 (Δ: 0.81355)
+  [Statistisch 30 Läufe]
+    countAll: 93744.8 ± 2981.2
+    RR:   0.0214 ± 0.00068 (Δ: 0.00053)
+    DET:  0.9076 ± 0.00557 (Δ: 0.41832)
+    L:    14.9543 ± 0.6431 (Δ: 12.31476)
+    ENTR: 1.8028 ± 0.05011 (Δ: 0.93185)
+
+========================================================================
+ SYSTEM: KLASSE 2: QUASIPERIODIC
+========================================================================
+
+--- BASELINE: woRP_2 (Standard, apply_correction=false) ---
+Runtime: 61.38 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.04117
+DET:     0.99987
+L:       17.74439
+ENTR:    3.07388
+
+--- BASELINE: woRP_2 (Sceletonized, apply_correction=true) ---
+Runtime: 52.88 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.00765
+DET:     0.92119
+L:       10.34365
+ENTR:    2.11879
+
+>>> EVALUATING: Norbert (Matrix) <<<
+  [Benchmark W/O Seed]   12.17 ms | Allocs: 121 | Mem: 162.36 KiB
+  [Benchmark WITH Seed]  11.65 ms | Allocs: 121 | Mem: 162.36 KiB
+  [Exakt Seed 42]        countAll: 803007
+    RR:   0.0367 (Δ: -0.00447)
+    DET:  0.9998 (Δ: -6.0e-5)
+    L:    15.2573 (Δ: -2.48712)
+    ENTR: 3.1021 (Δ: 0.02827)
+  [Statistisch 30 Läufe]
+    countAll: 830511.7 ± 17321.1
+    RR:   0.042 ± 0.00866 (Δ: 0.0008)
+    DET:  0.9999 ± 7.0e-5 (Δ: -2.0e-5)
+    L:    17.9956 ± 3.75582 (Δ: 0.25117)
+    ENTR: 3.0388 ± 0.03876 (Δ: -0.03512)
+
+>>> EVALUATING: SMI LFBOTH (Matrix) <<<
+  [Benchmark W/O Seed]   14.39 ms | Allocs: 128 | Mem: 100.77 KiB
+  [Benchmark WITH Seed]  13.54 ms | Allocs: 132 | Mem: 175.97 KiB
+  [Exakt Seed 42]        countAll: 47394
+    RR:   0.0422 (Δ: 0.00103)
+    DET:  1.0 (Δ: 0.00013)
+    L:    18.7877 (Δ: 1.04336)
+    ENTR: 3.043 (Δ: -0.03089)
+  [Statistisch 30 Läufe]
+    countAll: 48314.4 ± 1902.4
+    RR:   0.0415 ± 0.00152 (Δ: 0.00028)
+    DET:  1.0 ± 0.00015 (Δ: 8.0e-5)
+    L:    18.4481 ± 0.52007 (Δ: 0.70373)
+    ENTR: 3.0416 ± 0.03317 (Δ: -0.0323)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=false] <<<
+  [Benchmark W/O Seed]   7.58 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Benchmark WITH Seed]  2.72 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Exakt Seed 42]        countAll: 46455
+    RR:   0.0431 (Δ: 0.00188)
+    DET:  0.9995 (Δ: -0.00037)
+    L:    17.5668 (Δ: -0.17763)
+    ENTR: 3.1159 (Δ: 0.04206)
+  [Statistisch 30 Läufe]
+    countAll: 48027.5 ± 2180.8
+    RR:   0.0415 ± 0.00143 (Δ: 0.00031)
+    DET:  0.9999 ± 0.0002 (Δ: 3.0e-5)
+    L:    18.3813 ± 0.48032 (Δ: 0.63688)
+    ENTR: 3.0589 ± 0.0414 (Δ: -0.01497)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=true] <<<
+  [Benchmark W/O Seed]   10.67 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Benchmark WITH Seed]  6.28 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Exakt Seed 42]        countAll: 263959
+    RR:   0.0076 (Δ: -8.0e-5)
+    DET:  1.0 (Δ: 0.07881)
+    L:    27.1474 (Δ: 16.80376)
+    ENTR: 3.1652 (Δ: 1.04645)
+  [Statistisch 30 Läufe]
+    countAll: 303684.5 ± 31553.1
+    RR:   0.0066 ± 0.00061 (Δ: -0.00101)
+    DET:  1.0 ± 0.0 (Δ: 0.07881)
+    L:    33.7788 ± 3.9754 (Δ: 23.43519)
+    ENTR: 3.5191 ± 0.11861 (Δ: 1.40035)
+
+========================================================================
+ SYSTEM: KLASSE 2: PERIODIC (RESONANZ)
+========================================================================
+
+--- BASELINE: woRP_2 (Standard, apply_correction=false) ---
+Runtime: 51.69 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.0499
+DET:     1.0
+L:       5000.0
+ENTR:    6.21261
+
+--- BASELINE: woRP_2 (Sceletonized, apply_correction=true) ---
+Runtime: 51.15 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.0499
+DET:     1.0
+L:       5000.0
+ENTR:    6.21261
+
+>>> EVALUATING: SMI LFBOTH (Matrix) <<<
+  [Benchmark W/O Seed]   45.73 ms | Allocs: 126 | Mem: 90.04 KiB
+  [Benchmark WITH Seed]  45.64 ms | Allocs: 128 | Mem: 100.75 KiB
+  [Exakt Seed 42]        countAll: 39808
+    RR:   0.0502 (Δ: 0.00034)
+    DET:  1.0 (Δ: 0.0)
+    L:    5030.3946 (Δ: 30.39462)
+    ENTR: 5.9408 (Δ: -0.2718)
+  [Statistisch 30 Läufe]
+    countAll: 40891.7 ± 865.4
+    RR:   0.0489 ± 0.00103 (Δ: -0.00097)
+    DET:  1.0 ± 0.0 (Δ: 0.0)
+    L:    5189.5752 ± 179.65156 (Δ: 189.57517)
+    ENTR: 5.9062 ± 0.03129 (Δ: -0.30642)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=false] <<<
+  [Benchmark W/O Seed]   12.15 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Benchmark WITH Seed]  12.23 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Exakt Seed 42]        countAll: 40370
+    RR:   0.0495 (Δ: -0.00036)
+    DET:  1.0 (Δ: 0.0)
+    L:    5028.2264 (Δ: 28.22643)
+    ENTR: 5.9362 (Δ: -0.27641)
+  [Statistisch 30 Läufe]
+    countAll: 39907.4 ± 797.0
+    RR:   0.0501 ± 0.00099 (Δ: 0.00023)
+    DET:  1.0 ± 0.0 (Δ: 0.0)
+    L:    4957.1156 ± 257.16889 (Δ: -42.88441)
+    ENTR: 5.8978 ± 0.08247 (Δ: -0.31476)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=true] <<<
+  [Benchmark W/O Seed]   13.81 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Benchmark WITH Seed]  12.24 ms | Allocs: 7 | Mem: 78.38 KiB
+  [Exakt Seed 42]        countAll: 40370
+    RR:   0.0495 (Δ: -0.00036)
+    DET:  1.0 (Δ: 0.0)
+    L:    5028.2264 (Δ: 28.22643)
+    ENTR: 5.9362 (Δ: -0.27641)
+  [Statistisch 30 Läufe]
+    countAll: 39907.4 ± 797.0
+    RR:   0.0501 ± 0.00099 (Δ: 0.00023)
+    DET:  1.0 ± 0.0 (Δ: 0.0)
+    L:    4957.1156 ± 257.16889 (Δ: -42.88441)
+    ENTR: 5.8978 ± 0.08247 (Δ: -0.31476)
+
+========================================================================
+ SYSTEM: KLASSE 3: HOMOGENOUS RP (WHITE NOISE)
+========================================================================
+
+--- BASELINE: woRP_2 (Standard, apply_correction=false) ---
+Runtime: 317.45 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.31001
+DET:     0.69578
+L:       2.81683
+ENTR:    1.24791
+
+--- BASELINE: woRP_2 (Sceletonized, apply_correction=true) ---
+Runtime: 443.52 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.20916
+DET:     0.44137
+L:       2.35246
+ENTR:    0.75896
+
+>>> EVALUATING: Norbert (Matrix) <<<
+  [Benchmark W/O Seed]   0.3 ms | Allocs: 121 | Mem: 162.36 KiB
+  [Benchmark WITH Seed]  0.23 ms | Allocs: 121 | Mem: 162.36 KiB
+  [Exakt Seed 42]        countAll: 7741
+    RR:   0.322 (Δ: 0.01202)
+    DET:  0.6933 (Δ: -0.0025)
+    L:    2.8651 (Δ: 0.04825)
+    ENTR: 1.2522 (Δ: 0.00432)
+  [Statistisch 30 Läufe]
+    countAll: 8060.4 ± 133.0
+    RR:   0.3116 ± 0.00453 (Δ: 0.00159)
+    DET:  0.6957 ± 0.01222 (Δ: -0.0001)
+    L:    2.807 ± 0.04094 (Δ: -0.00985)
+    ENTR: 1.2428 ± 0.02654 (Δ: -0.00507)
+
+>>> EVALUATING: SMI LFBOTH (Matrix) <<<
+  [Benchmark W/O Seed]   0.34 ms | Allocs: 128 | Mem: 100.75 KiB
+  [Benchmark WITH Seed]  0.27 ms | Allocs: 128 | Mem: 100.75 KiB
+  [Exakt Seed 42]        countAll: 4407
+    RR:   0.4538 (Δ: 0.14382)
+    DET:  0.712 (Δ: 0.01622)
+    L:    2.7778 (Δ: -0.03903)
+    ENTR: 1.2649 (Δ: 0.01695)
+  [Statistisch 30 Läufe]
+    countAll: 4463.2 ± 80.4
+    RR:   0.4482 ± 0.0081 (Δ: 0.13824)
+    DET:  0.6976 ± 0.01118 (Δ: 0.00179)
+    L:    2.8151 ± 0.0273 (Δ: -0.00173)
+    ENTR: 1.2496 ± 0.02047 (Δ: 0.00168)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=false] <<<
+  [Benchmark W/O Seed]   0.29 ms | Allocs: 10 | Mem: 86.26 KiB
+  [Benchmark WITH Seed]  0.23 ms | Allocs: 10 | Mem: 86.26 KiB
+  [Exakt Seed 42]        countAll: 4407
+    RR:   0.4538 (Δ: 0.14382)
+    DET:  0.712 (Δ: 0.01622)
+    L:    2.7778 (Δ: -0.03903)
+    ENTR: 1.2649 (Δ: 0.01695)
+  [Statistisch 30 Läufe]
+    countAll: 4452.3 ± 76.2
+    RR:   0.4493 ± 0.00769 (Δ: 0.13933)
+    DET:  0.6945 ± 0.01082 (Δ: -0.00125)
+    L:    2.8176 ± 0.02756 (Δ: 0.00074)
+    ENTR: 1.2451 ± 0.02119 (Δ: -0.00283)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=true] <<<
+  [Benchmark W/O Seed]   0.46 ms | Allocs: 10 | Mem: 86.26 KiB
+  [Benchmark WITH Seed]  0.38 ms | Allocs: 10 | Mem: 86.26 KiB
+  [Exakt Seed 42]        countAll: 7858
+    RR:   0.2545 (Δ: 0.04535)
+    DET:  0.661 (Δ: 0.21963)
+    L:    2.777 (Δ: 0.42452)
+    ENTR: 1.1794 (Δ: 0.42048)
+  [Statistisch 30 Läufe]
+    countAll: 7755.0 ± 146.4
+    RR:   0.258 ± 0.00485 (Δ: 0.04882)
+    DET:  0.6744 ± 0.0102 (Δ: 0.23306)
+    L:    2.8099 ± 0.03036 (Δ: 0.45746)
+    ENTR: 1.209 ± 0.02128 (Δ: 0.45006)
+
+========================================================================
+ SYSTEM: KLASSE 4: DRIFT (RANDOM WALK)
+========================================================================
+
+--- BASELINE: woRP_2 (Standard, apply_correction=false) ---
+Runtime: 47.16 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.21586
+DET:     0.98897
+L:       34.59
+ENTR:    3.53675
+
+--- BASELINE: woRP_2 (Sceletonized, apply_correction=true) ---
+Runtime: 129.67 ms | Allocs: 3 | Mem: 78.19 KiB
+RR:      0.0622
+DET:     0.07302
+L:       2.23951
+ENTR:    0.16898
+
+>>> EVALUATING: Norbert (Matrix) <<<
+  [Benchmark W/O Seed]   3.86 ms | Allocs: 121 | Mem: 162.36 KiB
+  [Benchmark WITH Seed]  3.87 ms | Allocs: 121 | Mem: 162.36 KiB
+  [Exakt Seed 42]        countAll: 186476
+    RR:   0.2291 (Δ: 0.01326)
+    DET:  0.9888 (Δ: -0.00021)
+    L:    33.1204 (Δ: -1.46956)
+    ENTR: 3.4563 (Δ: -0.08048)
+  [Statistisch 30 Läufe]
+    countAll: 183392.7 ± 3814.9
+    RR:   0.2383 ± 0.01173 (Δ: 0.02246)
+    DET:  0.9888 ± 0.00081 (Δ: -0.00015)
+    L:    34.6027 ± 1.95667 (Δ: 0.01269)
+    ENTR: 3.4519 ± 0.05472 (Δ: -0.08485)
+
+>>> EVALUATING: SMI LFBOTH (Matrix) <<<
+  [Benchmark W/O Seed]   1.42 ms | Allocs: 128 | Mem: 100.75 KiB
+  [Benchmark WITH Seed]  1.37 ms | Allocs: 130 | Mem: 124.86 KiB
+  [Exakt Seed 42]        countAll: 7580
+    RR:   0.2639 (Δ: 0.04799)
+    DET:  0.9905 (Δ: 0.00153)
+    L:    36.9533 (Δ: 2.36327)
+    ENTR: 3.6467 (Δ: 0.10994)
+  [Statistisch 30 Läufe]
+    countAll: 7366.4 ± 134.9
+    RR:   0.2716 ± 0.0049 (Δ: 0.05573)
+    DET:  0.9886 ± 0.00214 (Δ: -0.00037)
+    L:    35.3184 ± 2.16911 (Δ: 0.72844)
+    ENTR: 3.497 ± 0.13984 (Δ: -0.03972)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=false] <<<
+  [Benchmark W/O Seed]   0.71 ms | Allocs: 10 | Mem: 86.26 KiB
+  [Benchmark WITH Seed]  0.78 ms | Allocs: 10 | Mem: 94.08 KiB
+  [Exakt Seed 42]        countAll: 7434
+    RR:   0.269 (Δ: 0.05318)
+    DET:  0.9905 (Δ: 0.00153)
+    L:    39.1028 (Δ: 4.51284)
+    ENTR: 3.6776 (Δ: 0.14084)
+  [Statistisch 30 Läufe]
+    countAll: 7369.8 ± 128.0
+    RR:   0.2715 ± 0.00466 (Δ: 0.0556)
+    DET:  0.9887 ± 0.00209 (Δ: -0.00027)
+    L:    35.2234 ± 2.06204 (Δ: 0.63343)
+    ENTR: 3.499 ± 0.13931 (Δ: -0.03771)
+
+>>> EVALUATING: Hybrid1 (SVector) [apply_artefact_correction=true] <<<
+  [Benchmark W/O Seed]   1.39 ms | Allocs: 10 | Mem: 86.26 KiB
+  [Benchmark WITH Seed]  1.45 ms | Allocs: 10 | Mem: 94.08 KiB
+  [Exakt Seed 42]        countAll: 33687
+    RR:   0.0594 (Δ: -0.00283)
+    DET:  0.9635 (Δ: 0.89048)
+    L:    28.6393 (Δ: 26.39979)
+    ENTR: 2.4706 (Δ: 2.30161)
+  [Statistisch 30 Läufe]
+    countAll: 34533.7 ± 2310.3
+    RR:   0.0581 ± 0.00333 (Δ: -0.00407)
+    DET:  0.9714 ± 0.00375 (Δ: 0.89838)
+    L:    28.7258 ± 1.76363 (Δ: 26.48628)
+    ENTR: 2.7017 ± 0.11773 (Δ: 2.5327)

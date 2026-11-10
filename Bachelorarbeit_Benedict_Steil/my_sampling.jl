@@ -1865,39 +1865,35 @@ end
 """
 Sampling 4.2.1.1: hybrid1_dep ohne max_fails (und andere deps?) wnlfb
 """
-function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true, epsilon_quantile::Bool = false, rng::AbstractRNG = Random.default_rng()) where {T<:AbstractFloat}
+function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true, epsilon_quantile::Bool = false, apply_artefact_correction::Bool = false, rng::AbstractRNG = Random.default_rng()) where {T<:AbstractFloat}
     N = length(x)                  
     
-    # Optionales Umschalten zwischen absolutem Epsilon und Quantil-Epsilon
     if epsilon_quantile == true
-        target_rr = 0.03  # laut literatur zwischen 2 und 5% für alle systeme??
+        target_rr = 0.05
         ε2 = estimate_epsilon_sq_by_rr(rng, x, target_rr, samples=100000)
-        ε = sqrt(ε2) # Nur für Metriken oder Logging, falls das lineare Epsilon benötigt wird
     else
-        ε2 = ε^2 # Fallback auf statisches Epsilon
+        ε2 = ε^2 
     end
     
-    # 1. Periodizitäts-Parameter vorbereiten
     check_length = clamp(N ÷ 20, 15, 100) 
     max_misses = 3 
     period_equidistance_error = 2 
-    W_theiler = estimate_W(rng, x, ε) 
+    
+    # W_theiler und W_soujorn schätzen (werden u.a. für den Periodicity-Check benötigt)
+    W_theiler = estimate_W(rng, x, sqrt(ε2)) 
     W_soujorn = max(3, W_theiler)           
     
-    estimated_RR = estimate_RR_svec(rng, x, ε)
+    estimated_RR = estimate_RR_svec(rng, x, sqrt(ε2))
     max_fails = clamp(round(Int, 3.0 / max(estimated_RR, 0.01)), 15, 150)
    
-    # 2. Aufruf der externen Logik-Funktion
     is_periodic = check_periodicity_block(x, N, check_length, max_misses, period_equidistance_error, W_soujorn, max_fails, ε2)
 
-    # 3. Dispatch (Maximal 5-6 Argumente -> bleibt zu 100% in den CPU-Registern!)
     if is_periodic
-        return rand_sample_lfb_svec(rng, x, ε2, M, W_theiler, W_soujorn)
+        return rand_sample_lfb_svec(rng, x, ε2, M, W_theiler, apply_artefact_correction)
     else
-        return smi_lfb_svec(rng, x, ε2, M, estimated_RR, s, W_theiler, W_soujorn)
+        return smi_lfb_svec(rng, x, ε2, M, estimated_RR, s, W_theiler, apply_artefact_correction)
     end
 end
-
 
 
 
@@ -2935,7 +2931,7 @@ Zusatzfunktion 5: check_periodicity_block
     d12 = d23 = d34 = d45 = d13 = d24 = d14 = d15 = d25 = d35 = 0 
     
     i = N - check_length 
-    current = i - max(3, W_soujorn) 
+    current = i - max(3, W_soujorn)   # saplte, weshalb nicht W_theiler?
     failed_attempts = 0
     
     @inbounds while current >= 1
@@ -3006,45 +3002,46 @@ end
 """
 Zusatzfunktion 6: rand_sample_lfb_svec
 """
-function rand_sample_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M::Int, W_theiler::Int, W_soujourn::Int, true_line_test::Bool = false) where {T<:AbstractFloat}
+function rand_sample_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M::Int, W_theiler::Int, apply_correction::Bool) where {T<:AbstractFloat}
     N = length(x)
     L_local = zeros(Float64, N)
     
-    total_pairs = N * (N - 1) >> 1
+    total_pairs = (N * (N - 1)) >> 1
     max_searches = max(M * 200, total_pairs << 1)
     
-    K = 50              
-    W_conv = 5               
-    tol = 1e-3          
-    min_samples = 500   
-    
-    det_ring = zeros(Float64, W_conv)
-    l_ring   = zeros(Float64, W_conv)
-    ring_idx = 1
-    history_count = 0
-    sum_n2_L = 0.0   
-    sum_L2   = 0.0   
-    
-    count = 0                         
-    countAll = 0 
+    K = 50; W_conv = 5; tol = 1e-3; min_samples = 500   
+    det_ring = zeros(Float64, W_conv); l_ring = zeros(Float64, W_conv)
+    ring_idx = 1; history_count = 0; sum_n2_L = 0.0; sum_L2 = 0.0; count = 0; countAll = 0 
 
-    while count < M # weshalb kein inbounds oder so?
+    while count < M
         if countAll > max_searches; break; end
         countAll += 1                 
 
-        u1 = rand(rng, 1:N)    # irgendwie W_theiler und W_soujorn hier berücksichtigen??
+        u1 = rand(rng, 1:N)
         u2 = rand(rng, 1:N)
-        if u1 == u2; continue; end    # das heißt doch, dass wenn u1 = u2 dann zählen wir ein countAll dazu, ohne dass eine prüfung durchgeführt worden ist??
-        j_start, i_start = minmax(u1, u2)  # heißt das linke bekommt das min und das rechte das max zugewiesen?? also für oberes dreieck, wenn die LOI von links unten nachr echts oben, ist j die x achse (spalten) und i die  y (zeilen) ?
+        
+        # 1. Theiler Window Rejection (rasend schnell, perfekte Branch Prediction)
+        if abs(u1 - u2) <= W_theiler
+            continue
+        end
+        
+        # i ist immer die Zeile (größer), j die Spalte (kleiner)
+        j_start, i_start = minmax(u1, u2)
 
-        if sq_dist(x, i_start, j_start) > ε2; continue; end
+        d2 = sq_dist(x, i_start, j_start)
+        if d2 > ε2; continue; end
+        
+        # 2. Skeletonisierung (nur falls aktiviert)
+        if apply_correction && !is_ridge(x, i_start, j_start, d2, N)
+            continue
+        end
 
         cnt = 1 
-        @inbounds for offset in 1:(N - i_start) 
-            if sq_dist(x, i_start + offset, j_start + offset) <= ε2; cnt += 1; else; break; end
+        @inbounds for k_offset in 1:(N - i_start) 
+            if sq_dist(x, i_start + k_offset, j_start + k_offset) <= ε2; cnt += 1; else; break; end
         end
-        @inbounds for offset in 1:(j_start-1) 
-            if sq_dist(x, i_start - offset, j_start - offset) <= ε2; cnt += 1; else; break; end
+        @inbounds for k_offset in 1:(j_start-1) 
+            if sq_dist(x, i_start - k_offset, j_start - k_offset) <= ε2; cnt += 1; else; break; end
         end
         
         if cnt > 0 
@@ -3053,8 +3050,8 @@ function rand_sample_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε
             count += 1                
 
             is_long = cnt >= 2
-            sum_n2_L += is_long
-            sum_L2   += is_long * weight
+            sum_n2_L += is_long ? 1.0 : 0.0
+            sum_L2   += is_long ? weight : 0.0
 
             if count % K == 0 && count >= min_samples
                 @inbounds det_ring[ring_idx] = sum_n2_L / count
@@ -3072,99 +3069,141 @@ function rand_sample_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε
     return L_local, countAll
 end
 
+#function rand_sample_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M::Int, W_theiler::Int, W_soujourn::Int, true_line_test::Bool = false) where {T<:AbstractFloat}
+#    N = length(x)
+#    L_local = zeros(Float64, N)
+#    
+#    total_pairs = N * (N - 1) >> 1
+#    max_searches = max(M * 200, total_pairs << 1)
+#    
+#    K = 50              
+#    W_conv = 5               
+#    tol = 1e-3          
+#    min_samples = 500   
+#    
+#    det_ring = zeros(Float64, W_conv)
+#    l_ring   = zeros(Float64, W_conv)
+#    ring_idx = 1
+#    history_count = 0
+#    sum_n2_L = 0.0   
+#    sum_L2   = 0.0   
+#    
+#    count = 0                         
+#    countAll = 0 
+#
+#    while count < M # weshalb kein inbounds oder so?
+#        if countAll > max_searches; break; end
+#        countAll += 1                 
+#
+#        u1 = rand(rng, 1:N)    # irgendwie W_theiler und W_soujorn hier berücksichtigen??
+#        u2 = rand(rng, 1:N)
+#        if u1 == u2; continue; end    # das heißt doch, dass wenn u1 = u2 dann zählen wir ein countAll dazu, ohne dass eine prüfung durchgeführt worden ist??
+#        j_start, i_start = minmax(u1, u2)  # heißt das linke bekommt das min und das rechte das max zugewiesen?? also für oberes dreieck, wenn die LOI von links unten nachr echts oben, ist j die x achse (spalten) und i die  y (zeilen) ?
+#
+#        if sq_dist(x, i_start, j_start) > ε2; continue; end
+#
+#        cnt = 1 
+#        @inbounds for offset in 1:(N - i_start) 
+#            if sq_dist(x, i_start + offset, j_start + offset) <= ε2; cnt += 1; else; break; end
+#        end
+#        @inbounds for offset in 1:(j_start-1) 
+#            if sq_dist(x, i_start - offset, j_start - offset) <= ε2; cnt += 1; else; break; end
+#        end
+#        
+#        if cnt > 0 
+#            weight = 1.0 / cnt
+#            @inbounds L_local[cnt] += weight    
+#            count += 1                
+#
+#            is_long = cnt >= 2
+#            sum_n2_L += is_long
+#            sum_L2   += is_long * weight
+#
+#            if count % K == 0 && count >= min_samples
+#                @inbounds det_ring[ring_idx] = sum_n2_L / count
+#                @inbounds l_ring[ring_idx]   = sum_n2_L / sum_L2
+#                ring_idx = (ring_idx % W_conv) + 1
+#                history_count += 1
+#                
+#                if history_count >= W_conv && calc_rel_change(det_ring) < tol && calc_rel_change(l_ring) < tol
+#                    break
+#                end
+#            end
+#        end          
+#    end
+#    
+#    return L_local, countAll
+#end
+
 """
 Zusatzfunktion 7: smi_lfb_svec
 """
-function smi_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M::Int, estimated_RR::Float64, s::Union{Float64, Nothing}, W_theiler::Int, W_soujourn::Int) where {T<:AbstractFloat}
+function smi_lfb_svec(
+    rng::AbstractRNG, 
+    x::AbstractVector{<:SVector}, 
+    ε2::Float64, 
+    M::Int, 
+    estimated_RR::Float64, 
+    s::Union{Float64, Nothing}, 
+    W_theiler::Int, 
+    apply_correction::Bool
+)
     N = length(x)
     L_local = zeros(Float64, N)
     
-    total_pairs = N * (N - 1) >> 1
+    total_pairs = (N * (N - 1)) >> 1
     max_searches = max(M * 200, total_pairs << 1)
     
-    K = 50              
-    W_conv = 5               
-    tol = 1e-3          
-    min_samples = 500   
+    K = 50; W_conv = 5; tol = 1e-3; min_samples = 500   
+    det_ring = zeros(Float64, W_conv); l_ring = zeros(Float64, W_conv)
+    ring_idx = 1; history_count = 0; sum_n2_L = 0.0; sum_L2 = 0.0; count = 0; countAll = 0 
+
+    actual_s = (s !== nothing) ? s : (estimated_RR < 0.05 ? 5.0 : (estimated_RR > 0.2 ? 0.5 : 1.0))
+    estimated_tries_per_box = (estimated_RR < 0.05 ? 50 : (estimated_RR > 0.2 ? 12 : 24))
+
+    s_tilde = M * actual_s
+
+    # 1. Externe Box-Aktivierung
+    active_boxs, active_box_count, offset, box_length_dyn, num_boxes = activate_boxes_smi(
+        rng, x, ε2, s_tilde, total_pairs, estimated_tries_per_box, W_theiler, apply_correction
+    )
+    if active_box_count == 0; return L_local, countAll; end
     
-    # High-Performance Float Konstanten NUR hier! weshalb? wozu den kram anyways??
-    N2_1 = 2.0 * N - 1.0
-    N2_1_sq = Float64(N2_1)^2
-    
-    det_ring = zeros(Float64, W_conv)
-    l_ring   = zeros(Float64, W_conv)
-    ring_idx = 1
-    history_count = 0
-    sum_n2_L = 0.0   
-    sum_L2   = 0.0   
-    
-    count = 0                         
-    countAll = 0 
-
-    @inbounds actual_s = (s !== nothing) ? s : (estimated_RR < 0.05 ? 5.0 : (estimated_RR > 0.2 ? 0.5 : 1.0))
-    @inbounds estimated_tries_per_box = (estimated_RR < 0.05 ? 50 : (estimated_RR > 0.2 ? 12 : 24))
-
-    @inbounds s_tilde = M * actual_s
-    @inbounds num_boxes = min(total_pairs, max(1, round(Int, s_tilde)))
-    @inbounds box_length_dyn = total_pairs ÷ num_boxes 
-    
-    @inbounds active_boxs = Vector{Int}(undef, num_boxes)
-    @inbounds active_box_count = 0
-    @inbounds box_lower_bounds = Vector{Int}(undef, num_boxes)
-    @inbounds box_upper_bounds = Vector{Int}(undef, num_boxes)
-
-    
-    @inbounds for current_box in 1:num_boxes                     # hier noch W_theiler und ?unten dann erst? W_soujorn integrieren! indem man beim durchgehen der zu prüfenden boxs W_theiler und W_soujorn berücksichtigt?! in dem die ersten W_theiler diagonalen also alles d<W_theiler tabu sind?! und W_soujorn dann indem wir immer, wenn auf einer diagonalen maximal xx mal einen rand punkt auf der diag samplen und sobald einer schwarz ist den eine box aktiviert worden ist auf dieser diagonale in beide richtungen die boxs prüfen, wobei in beide richtungen ein eigenes max_misses läuft und nach mehr als einer box nicht aktiviert wird abgebrochen in die jeweilige richtung und wenn mehr als  box auf déiner diagonalen aktiviert worden ist, also ganz einfach, wenn eine box in der following schleife aktiviert wird in einer richtung wird, falls noch nicht geschehen long_diag auf true gesetzt und dann also alle boxen auf der diag aktiviert und . heißt alo auch wir gehen die diagonalen durch beim box aktivieren (box aktivieren sollte eine eigene funktion sein oder? noch mehr externe funktionen noch in den beiden samplings definieren?) und zwar startend von d = W_theiler+1 (sollten wir dann trotzdessen die boxs im rqa sampling mit rand durchgehen oder ist dann hintereinander besser? ne?! dann finden wir ja wieder hintereinander immer wieder die selbe linie?!)
-        l_b = (current_box-1) * box_length_dyn + 1
-        u_b = current_box == num_boxes ? total_pairs : current_box * box_length_dyn
-        box_lower_bounds[current_box] = l_b
-        box_upper_bounds[current_box] = u_b
-
-        for _ in 1:estimated_tries_per_box 
-            idx = rand(rng, l_b:u_b)     
-            #d = ceil(Int, (N2_1 - sqrt(N2_1_sq - 8.0 * Float64(idx))) * 0.5)    # wozu ceil? die mathe hier und bei folgenden zeilen?
-            val = N2_1_sq - 8.0 * idx # idx wird automatisch schnell zu Float64 promoted
-            S_int = trunc(Int, sqrt(val))
-            d = (N2_1 - S_int + 1) >> 1
-            d_minus = d - 1
-            previous_elements = d_minus * N - (d_minus * d >> 1)
-            j_start = idx - previous_elements     
-            i_start = j_start + d
-
-            if sq_dist(x, i_start, j_start) <= ε2
-                active_box_count += 1
-                active_boxs[active_box_count] = current_box    # zero allocation trick hier anwendbar?? also ohne array oder liste die boxs irwei speichern?!?
-                break 
-            end
-        end
-    end
-
-    if active_box_count == 0; return L_local, countAll; end  # alles leer returnen, da eh nichts geprüft würde, keine boxs aktiv, da wohl RP zu leer oder ε zu klein, nicht ein schwarzer punkt in irgendeiner box gefunden.
-
+    N2_1_int = 2 * N - 1
+    N2_1_sq = Float64(N2_1_int)^2
     sum_n_L = 0.0
-    while count < M # weshalb kein inbounds oder so?
-        if countAll > max_searches; break; end
-        @inbounds current_box = active_boxs[rand(rng, 1:active_box_count)]   # um dicke linien und verweilungsartefakte, soujorn kram zu vermeiden zufällige boxs und nicht der reihe nach
-        
-        countAll += 1                 
-        @inbounds idx = rand(rng, box_lower_bounds[current_box]:box_upper_bounds[current_box])     
 
-        val = N2_1_sq - 8.0 * idx # idx wird automatisch schnell zu Float64 promoted
+    while count < M
+        if countAll > max_searches; break; end
+        
+        @inbounds current_box = active_boxs[rand(rng, 1:active_box_count)]
+        countAll += 1                 
+        
+        # 2. On-the-fly Bounds (Rasend schnell in CPU Registern)
+        l_b = offset + (current_box - 1) * box_length_dyn + 1
+        u_b = current_box == num_boxes ? total_pairs : offset + current_box * box_length_dyn
+        idx = rand(rng, l_b:u_b)     
+
+        val = N2_1_sq - 8.0 * Float64(idx)
         S_int = trunc(Int, sqrt(val))
-        d = (N2_1 - S_int + 1) >> 1   
+        d = (N2_1_int - S_int + 1) >> 1   
         d_minus = d - 1
-        previous_elements = d_minus * N - (d_minus * d >> 1)
-        j_start = idx - previous_elements     
+        j_start = idx - (d_minus * N - (d_minus * d >> 1))
         i_start = j_start + d                 
 
-        if sq_dist(x, i_start, j_start) > ε2; continue; end
+        d2 = sq_dist(x, i_start, j_start)
+        if d2 > ε2; continue; end
+        
+        if apply_correction && !is_ridge(x, i_start, j_start, d2, N)
+            continue
+        end
 
         cnt = 1 
-        @inbounds for offset in 1:(N - i_start) 
-            if sq_dist(x, i_start + offset, j_start + offset) <= ε2; cnt += 1; else; break; end
+        @inbounds for k_offset in 1:(N - i_start) 
+            if sq_dist(x, i_start + k_offset, j_start + k_offset) <= ε2; cnt += 1; else; break; end
         end
-        @inbounds for offset in 1:(j_start-1) 
-            if sq_dist(x, i_start - offset, j_start - offset) <= ε2; cnt += 1; else; break; end
+        @inbounds for k_offset in 1:(j_start-1) 
+            if sq_dist(x, i_start - k_offset, j_start - k_offset) <= ε2; cnt += 1; else; break; end
         end
         
         if cnt > 0 
@@ -3174,34 +3213,229 @@ function smi_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M:
             
             sum_n_L  += cnt * weight
             is_long = cnt >= 2
-            sum_n2_L += is_long ? cnt * weight : 0.0
-            sum_L2   += is_long * weight
+            sum_n2_L += is_long ? (cnt * weight) : 0.0
+            sum_L2   += is_long ? weight : 0.0
 
             if count % K == 0 && count >= min_samples
                 @inbounds det_ring[ring_idx] = sum_n2_L / sum_n_L
                 @inbounds l_ring[ring_idx]   = sum_n2_L / sum_L2
                 ring_idx = (ring_idx % W_conv) + 1
                 history_count += 1
-                
                 if history_count >= W_conv && calc_rel_change(det_ring) < tol && calc_rel_change(l_ring) < tol
                     break
                 end
             end
         end          
     end
-
-    @inbounds countAll_correct_scaled = div(Int128(countAll) * num_boxes, active_box_count)
+# WICHTIG: Int(...) Konvertierung verhindert den Int128 MethodError!
+    countAll_correct_scaled = Int(div(Int128(countAll) * num_boxes, active_box_count))
     return L_local, countAll_correct_scaled
 end
 
+#function smi_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M::Int, estimated_RR::Float64, s::Union{Float64, Nothing}, W_theiler::Int, W_soujourn::Int) where {T<:AbstractFloat}
+#    N = length(x)
+#    L_local = zeros(Float64, N)
+#    
+#    total_pairs = N * (N - 1) >> 1
+#    max_searches = max(M * 200, total_pairs << 1)
+#    
+#    K = 50              
+#    W_conv = 5               
+#    tol = 1e-3          
+#    min_samples = 500   
+#    
+#    # High-Performance Float Konstanten NUR hier! weshalb? wozu den kram anyways??
+#    N2_1 = 2.0 * N - 1.0
+#    N2_1_sq = Float64(N2_1)^2
+#    
+#    det_ring = zeros(Float64, W_conv)
+#    l_ring   = zeros(Float64, W_conv)
+#    ring_idx = 1
+#    history_count = 0
+#    sum_n2_L = 0.0   
+#    sum_L2   = 0.0   
+#    
+#    count = 0                         
+#    countAll = 0 
+#
+#    @inbounds actual_s = (s !== nothing) ? s : (estimated_RR < 0.05 ? 5.0 : (estimated_RR > 0.2 ? 0.5 : 1.0))
+#    @inbounds estimated_tries_per_box = (estimated_RR < 0.05 ? 50 : (estimated_RR > 0.2 ? 12 : 24))
+#
+#    @inbounds s_tilde = M * actual_s
+#    @inbounds num_boxes = min(total_pairs, max(1, round(Int, s_tilde)))
+#    @inbounds box_length_dyn = total_pairs ÷ num_boxes 
+#    
+#    @inbounds active_boxs = Vector{Int}(undef, num_boxes)
+#    @inbounds active_box_count = 0
+#    @inbounds box_lower_bounds = Vector{Int}(undef, num_boxes)
+#    @inbounds box_upper_bounds = Vector{Int}(undef, num_boxes)
+#
+#    
+#    @inbounds for current_box in 1:num_boxes                     # hier noch W_theiler und ?unten dann erst? W_soujorn integrieren! indem man beim durchgehen der zu prüfenden boxs W_theiler und W_soujorn berücksichtigt?! in dem die ersten W_theiler diagonalen also alles d<W_theiler tabu sind?! und W_soujorn dann indem wir immer, wenn auf einer diagonalen maximal xx mal einen rand punkt auf der diag samplen und sobald einer schwarz ist den eine box aktiviert worden ist auf dieser diagonale in beide richtungen die boxs prüfen, wobei in beide richtungen ein eigenes max_misses läuft und nach mehr als einer box nicht aktiviert wird abgebrochen in die jeweilige richtung und wenn mehr als  box auf déiner diagonalen aktiviert worden ist, also ganz einfach, wenn eine box in der following schleife aktiviert wird in einer richtung wird, falls noch nicht geschehen long_diag auf true gesetzt und dann also alle boxen auf der diag aktiviert und . heißt alo auch wir gehen die diagonalen durch beim box aktivieren (box aktivieren sollte eine eigene funktion sein oder? noch mehr externe funktionen noch in den beiden samplings definieren?) und zwar startend von d = W_theiler+1 (sollten wir dann trotzdessen die boxs im rqa sampling mit rand durchgehen oder ist dann hintereinander besser? ne?! dann finden wir ja wieder hintereinander immer wieder die selbe linie?!)
+#        l_b = (current_box-1) * box_length_dyn + 1
+#        u_b = current_box == num_boxes ? total_pairs : current_box * box_length_dyn
+#        box_lower_bounds[current_box] = l_b
+#        box_upper_bounds[current_box] = u_b
+#
+#        for _ in 1:estimated_tries_per_box 
+#            idx = rand(rng, l_b:u_b)     
+#            #d = ceil(Int, (N2_1 - sqrt(N2_1_sq - 8.0 * Float64(idx))) * 0.5)    # wozu ceil? die mathe hier und bei folgenden zeilen?
+#            val = N2_1_sq - 8.0 * idx # idx wird automatisch schnell zu Float64 promoted
+#            S_int = trunc(Int, sqrt(val))
+#            d = (N2_1 - S_int + 1) >> 1
+#            d_minus = d - 1
+#            previous_elements = d_minus * N - (d_minus * d >> 1)
+#            j_start = idx - previous_elements     # spalte (oberes dreieck, j < i)
+#            i_start = j_start + d                 # zeile (oberes dreieck)
+#
+#            if sq_dist(x, i_start, j_start) <= ε2
+#                active_box_count += 1
+#                active_boxs[active_box_count] = current_box    # zero allocation trick hier anwendbar?? also ohne array oder liste die boxs irwei speichern?!?
+#                break 
+#            end
+#        end
+#    end
+#
+#    if active_box_count == 0; return L_local, countAll; end  # alles leer returnen, da eh nichts geprüft würde, keine boxs aktiv, da wohl RP zu leer oder ε zu klein, nicht ein schwarzer punkt in irgendeiner box gefunden.
+#
+#    sum_n_L = 0.0
+#    while count < M # weshalb kein inbounds oder so?
+#        if countAll > max_searches; break; end
+#        @inbounds current_box = active_boxs[rand(rng, 1:active_box_count)]   # um dicke linien und verweilungsartefakte, soujorn kram zu vermeiden zufällige boxs und nicht der reihe nach
+#        
+#        countAll += 1                 
+#        @inbounds idx = rand(rng, box_lower_bounds[current_box]:box_upper_bounds[current_box])     
+#
+#        val = N2_1_sq - 8.0 * idx # idx wird automatisch schnell zu Float64 promoted
+#        S_int = trunc(Int, sqrt(val))
+#        d = (N2_1 - S_int + 1) >> 1   
+#        d_minus = d - 1
+#        previous_elements = d_minus * N - (d_minus * d >> 1)
+#        j_start = idx - previous_elements     # spalte (oberes dreieck, j < i)
+#        i_start = j_start + d                 # zeile (oberes dreieck)
+#
+#        if sq_dist(x, i_start, j_start) > ε2; continue; end
+#
+#        cnt = 1 
+#        @inbounds for offset in 1:(N - i_start) 
+#            if sq_dist(x, i_start + offset, j_start + offset) <= ε2; cnt += 1; else; break; end
+#        end
+#        @inbounds for offset in 1:(j_start-1) 
+#            if sq_dist(x, i_start - offset, j_start - offset) <= ε2; cnt += 1; else; break; end
+#        end
+#        
+#        if cnt > 0 
+#            weight = 1.0 / cnt
+#            @inbounds L_local[cnt] += weight         
+#            count += 1                
+#            
+#            sum_n_L  += cnt * weight
+#            is_long = cnt >= 2
+#            sum_n2_L += is_long ? cnt * weight : 0.0
+#            sum_L2   += is_long * weight
+#
+#            if count % K == 0 && count >= min_samples
+#                @inbounds det_ring[ring_idx] = sum_n2_L / sum_n_L
+#                @inbounds l_ring[ring_idx]   = sum_n2_L / sum_L2
+#                ring_idx = (ring_idx % W_conv) + 1
+#                history_count += 1
+#                
+#                if history_count >= W_conv && calc_rel_change(det_ring) < tol && calc_rel_change(l_ring) < tol
+#                    break
+#                end
+#            end
+#        end          
+#    end
+#
+#    @inbounds countAll_correct_scaled = div(Int128(countAll) * num_boxes, active_box_count)
+#    return L_local, countAll_correct_scaled
+#end
+
 """
-Zusatzfunktion 8:
+Zusatzfunktion 8: is_ridge(x, i, j, d2, N) # skelettierung
+Prüft, ob der Punkt (i,j) ein "ridge" ist, d.h, distanz seines paares ist kleiner als der paare in seiner spalte einen drüber und drunter.
 """
+@inline function is_ridge(x::AbstractVector{<:SVector}, i::Int, j::Int, d2::Float64, N::Int) 
+    # True-Line-Test (Skeletonization) noch optimierbar??
+    if i - 1 > j
+        if sq_dist(x, i - 1, j) < d2
+            return false
+        end
+    end
+    if i + 1 <= N
+        if sq_dist(x, i + 1, j) <= d2
+            return false
+        end
+    end
+    return true
+end
+
+
+"""
+Zusatzfunktion 9: activate_boxes_smi(rng, x, ε2, s_tilde, total_pairs, estimated_tries_per_box, W_theiler, apply_correction)
+"""
+function activate_boxes_smi(
+    rng::AbstractRNG, 
+    x::AbstractVector{<:SVector}, 
+    ε2::Float64, 
+    s_tilde::Float64, 
+    total_pairs::Int, 
+    estimated_tries_per_box::Int, 
+    W_theiler::Int, 
+    apply_correction::Bool
+)
+    N = length(x)
+    
+    offset = 0
+    if apply_correction
+        W_eff = clamp(W_theiler, 0, N - 2)
+        offset = (W_eff * N) - ((W_eff * (W_eff + 1)) >> 1)
+    end
+    
+    total_effective_pairs = max(1, total_pairs - offset)
+    num_boxes = min(total_effective_pairs, max(1, round(Int, s_tilde)))
+    box_length_dyn = total_effective_pairs ÷ num_boxes 
+    
+    active_boxs = Vector{Int}(undef, num_boxes)
+    active_box_count = 0
+    
+    N2_1_int = 2 * N - 1
+    N2_1_sq  = Float64(N2_1_int)^2
+    
+    @inbounds for current_box in 1:num_boxes
+        l_b = offset + (current_box - 1) * box_length_dyn + 1
+        u_b = current_box == num_boxes ? total_pairs : offset + current_box * box_length_dyn
+        
+        for _ in 1:estimated_tries_per_box
+            idx = rand(rng, l_b:u_b)
+            
+            val = N2_1_sq - 8.0 * Float64(idx)
+            S_int = trunc(Int, sqrt(val))
+            d = (N2_1_int - S_int + 1) >> 1
+            d_minus = d - 1
+            j_start = idx - (d_minus * N - ((d_minus * d) >> 1))
+            i_start = j_start + d
+            
+            d2 = sq_dist(x, i_start, j_start)
+            if d2 <= ε2
+                if apply_correction && !is_ridge(x, i_start, j_start, d2, N)
+                    continue
+                end
+                
+                active_box_count += 1
+                active_boxs[active_box_count] = current_box
+                break
+            end
+        end
+    end
+    
+    return active_boxs, active_box_count, offset, box_length_dyn, num_boxes
+end
 
 
 
 """
-Zusatzfunktion 9: estimate_epsilon_sq_by_rr(rng, x, target_rr; samples)
+Zusatzfunktion 10: estimate_epsilon_sq_by_rr(rng, x, target_rr; samples)
 
 Berechnet das optimale ε^2, sodass die Rekurrenzmatrix eine vorgegebene 
 Target-Recurrence-Rate (z.B. 0.05 für 5%) aufweist.
@@ -3238,46 +3472,43 @@ function estimate_epsilon_sq_by_rr(rng::AbstractRNG, x::AbstractVector{<:SVector
     # 3. Das Quantil bestimmen. 
     # quantile! sortiert/mutiert das Array in-place (O(N) Zeitkomplexität im Best-Case)
     # und ist deutlich schneller als eine vollständige Sortierung (sort!).
-    optimal_eps2 = quantile!(D2_samples, target_rr)
-    
-    return optimal_eps2
+    return quantile!(D2_samples, target_rr)
 end
 
 """
-get_hist_diagonal_woRP_sceletonization
-
-woRP with true_line_test
+Zusatzfunktion 11: get_hist_diagonal_woRP_2 (Baseline mit SVector & optionaler Korrektur)
 """
+function get_hist_diagonal_woRP_2(
+    x::AbstractVector{<:SVector}, 
+    ε::T, 
+    apply_artefact_correction::Bool = false; 
+    rng::AbstractRNG = Random.default_rng()
+) where {T<:AbstractFloat}
+    N = length(x)
+    L = zeros(Int, N)
+    ε2 = Float64(ε^2)
 
-function get_hist_diagonal_woRP(x, ε, true_line_test = true)
-    N, dim = size(x)                  # Number of observations and variables
-    L = zeros(Int, N)                 # Histogram for line lengths
-    ε2 = ε^2                          # Precompute squared threshold (avoids sqrt)
+    W_theiler = apply_artefact_correction ? estimate_W(rng, x, Float64(ε)) : 0
+    i_start   = apply_artefact_correction ? min(W_theiler + 2, N + 1) : 2
 
-    @inbounds for i in 2:N # start with 2 to remove main diagonal
+    @inbounds for i in i_start:N
         cnt = 0
         @inbounds for j in 1:(N - i + 1)
-            # Direct squared Euclidean distance computation
-
-            # variant 1 (needs to replace test D2 < ε2 with D < ε)
-#             @views diff .= x[i + j - 1, :] .- x[j, :]  # Avoid creating a new array
-#             #diff .= x[i + j - 1, :] .- x[j, :]  ## Causes many allocations
-#             D = norm(diff)  # Reuse `diff` instead of allocating new memory
+            r = i + j - 1
+            c = j
             
-            # variant 2 (needs to replace test D2 < ε2 with D < ε)
-            # D = norm(x[i + j - 1, :] - x[j, :])
+            D2 = sq_dist(x, r, c)
+            is_black = D2 <= ε2
             
-            # variant 3
-            D2 = 0.0
-            @inbounds for k in 1:dim
-                D2 += (x[i + j - 1, k] - x[j, k])^2
+            if is_black && apply_artefact_correction
+                is_black = is_ridge(x, r, c, D2, N)
             end
-
-            if D2 <= ε2
-                cnt += 1              # Extend current diagonal
+            
+            if is_black
+                cnt += 1
             else
                 if cnt > 0
-                    L[cnt] += 1       # Store completed line length
+                    L[cnt] += 1
                     cnt = 0
                 end
             end
@@ -3289,3 +3520,57 @@ function get_hist_diagonal_woRP(x, ε, true_line_test = true)
 
     return L
 end
+
+#function get_hist_diagonal_woRP_2(x::AbstractVector{<:SVector}, ε::T, apply_artefact_correction::Bool = false; rng::AbstractRNG = Random.default_rng()) where {T<:AbstractFloat}
+#    N = length(x)
+#    L = zeros(Int, N)
+#    ε2 = ε^2
+#
+#    # 1. Theiler-Window EINMALIG vorberechnen (O(1) Aufruf)
+#    W_theiler = 0
+#    if apply_artefact_correction
+#        W_theiler = estimate_W(rng, x, ε)
+#    end
+#    
+#    # 2. Zero-Cost Theiler-Exklusion:
+#    # i=2 ist die erste Nebendiagonale (Distanz 1 zur LOI).
+#    # Um W_theiler komplett auszublenden, starten wir die Schleife einfach später.
+#    i_start = apply_artefact_correction ? (W_theiler + 2) : 2
+#    i_start = min(i_start, N + 1) # Sicherheitscatch, falls W_theiler riesig ist
+#
+#    @inbounds for i in i_start:N
+#        cnt = 0
+#        @inbounds for j in 1:(N - i + 1)
+#            # Exakte Koordinaten-Berechnung
+#            r = i + j - 1  # Zeile (row)
+#            c = j          # Spalte (col)
+#            
+#            D2 = sq_dist(x, r, c)
+#            
+#            # 3. Flache, boolesche Pipeline (Perfekt für Branch-Prediction)
+#            is_black = D2 <= ε2
+#            
+#            # Wenn der Punkt schwarz ist UND die Korrektur an ist, 
+#            # MUSS er der Ridge sein, um schwarz zu bleiben.
+#            if is_black && apply_artefact_correction
+#                is_black = is_ridge(x, r, c, D2, N)
+#            end
+#            
+#            # 4. Linien-Logik basierend auf dem finalen is_black Zustand
+#            if is_black
+#                cnt += 1              # Verlängere die Linie
+#            else
+#                if cnt > 0
+#                    L[cnt] += 1       # Speichere die abgeschlossene Linie
+#                    cnt = 0           # Setze Counter zurück
+#                end
+#            end
+#        end
+#        # Linien, die bis zum Rand des RP gehen, abschließen
+#        if cnt > 0
+#            L[cnt] += 1
+#        end
+#    end
+#
+#    return L
+#end
