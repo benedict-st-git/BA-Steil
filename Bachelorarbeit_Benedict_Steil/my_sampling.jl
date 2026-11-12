@@ -3158,9 +3158,11 @@ function smi_lfb_svec(
     det_ring = zeros(Float64, W_conv); l_ring = zeros(Float64, W_conv)
     ring_idx = 1; history_count = 0; sum_n2_L = 0.0; sum_L2 = 0.0; count = 0; countAll = 0 
 
-    actual_s = (s !== nothing) ? s : (estimated_RR < 0.05 ? 5.0 : (estimated_RR > 0.2 ? 0.5 : 1.0))
-    estimated_tries_per_box = (estimated_RR < 0.05 ? 50 : (estimated_RR > 0.2 ? 12 : 24))
-
+    # Stetige First-Principles-Formel aus der Geometrischen Verteilung (Konfidenzniveau 1 - α ≈ 92%):
+    rr_clamped = clamp(estimated_RR, 0.005, 0.90)
+    actual_s = (s !== nothing) ? s : clamp(0.15 / rr_clamped, 0.5, 5.0)
+    estimated_tries_per_box = clamp(ceil(Int, -2.5 / log1p(-rr_clamped)), 8, 60)
+    
     s_tilde = M * actual_s
 
     # 1. Externe Box-Aktivierung
@@ -3399,8 +3401,8 @@ function activate_boxes_smi(
     active_boxs = Vector{Int}(undef, num_boxes)
     active_box_count = 0
     
-    N2_1_int = 2 * N - 1
-    N2_1_sq  = Float64(N2_1_int)^2
+    N2_1_int = 2 * N - 1             # was??
+    N2_1_sq  = Float64(N2_1_int)^2   # ??
     
     @inbounds for current_box in 1:num_boxes
         l_b = offset + (current_box - 1) * box_length_dyn + 1
@@ -3409,7 +3411,7 @@ function activate_boxes_smi(
         for _ in 1:estimated_tries_per_box
             idx = rand(rng, l_b:u_b)
             
-            val = N2_1_sq - 8.0 * Float64(idx)
+            val = N2_1_sq - 8.0 * Float64(idx)                   # ?? und fortfolgende
             S_int = trunc(Int, sqrt(val))
             d = (N2_1_int - S_int + 1) >> 1
             d_minus = d - 1
@@ -3489,13 +3491,13 @@ function get_hist_diagonal_woRP_2(
     ε2 = Float64(ε^2)
 
     W_theiler = apply_artefact_correction ? estimate_W(rng, x, Float64(ε)) : 0
-    i_start   = apply_artefact_correction ? min(W_theiler + 2, N + 1) : 2
+    i_start   = apply_artefact_correction ? min(W_theiler + 2, N + 1) : 2  # was??????????
 
     @inbounds for i in i_start:N
         cnt = 0
         @inbounds for j in 1:(N - i + 1)
-            r = i + j - 1
-            c = j
+            r = i + j - 1           # hä?????????
+            c = j                   # ????????????
             
             D2 = sq_dist(x, r, c)
             is_black = D2 <= ε2

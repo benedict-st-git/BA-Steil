@@ -1,0 +1,21 @@
+Der exakte Ablauf für deinen finalen Benchmark-Lauf in der Windows PowerShell:
+
+Schließe VS Code und schließe dein Surface Pro 7 an das Stromnetz an (Windows-Energiemodus auf „Beste Leistung“).
+Öffne die Windows PowerShell und führe folgende Befehle aus:
+
+
+# 1. Sicher in das exakte Arbeitsverzeichnis wechseln
+Set-Location -Path "C:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bachelorarbeit\Marwan\Git\BA - Steil\Bachelorarbeit_Benedict_Steil"
+
+# 2. Prüfen, ob du im richtigen Ordner bist (zeigt die Dateien im Ordner an)
+Get-ChildItem *.jl
+
+# 3. Julia im Single-Core-HPC-Modus starten und Ausgabe live anzeigen + speichern
+julia --project=".." --startup-file=no -O3 --threads=1 my_test_big_RP_7.jl 2>&1 | Tee-Object -FilePath "extern_windPS_7.txt"
+
+
+--project="..": Lädt exakt deine Julia-Umgebung aus dem übergeordneten Ordner BA - Steil.
+
+--startup-file=no: Verhindert, dass globale Startskripte (wie OhMyREPL oder Revise) die Messung beeinflussen.
+
+-O3 --threads=1: Erzwingt maximale LLVM-Optimierung auf exakt einem CPU-Kern (analog zu Marwan 2026).   
