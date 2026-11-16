@@ -471,13 +471,32 @@ function evaluate_csv_dataset(io::IO, title::String, filename::String, M::Int; r
     filepath = joinpath(LITERATUR_DIR, filename)
     if !isfile(filepath)
         log_println(io, "\n[WARNUNG] Datei nicht gefunden: $filepath")
-        log_println(io, "Bitte führe zuvor einmalig `prepare_thesis_datasets.py` aus!")
+        log_println(io, "Bitte führe zuvor einmalig `.\\.venv\\Scripts\\python.exe prepare_thesis_datasets.py` aus!")
         return
     end
     x_mat = load_csv_matrix(filepath)
+    if !all(isfinite, x_mat)
+        log_println(io, "\n[FEHLER] Matrix $filename enthält NaN/Inf! Bitte `prepare_thesis_datasets.py` neu ausführen!")
+        return
+    end
     ε_val = 0.1 * (maximum(x_mat) - minimum(x_mat))
+    if ε_val <= 0.0 || !isfinite(ε_val)
+        log_println(io, "\n[FEHLER] Ungültiges ε = $ε_val für $filename!")
+        return
+    end
     evaluate_system_optimized(io, title, x_mat, ε_val, M; run_norb=run_norb)
 end
+#function evaluate_csv_dataset(io::IO, title::String, filename::String, M::Int; run_norb::Bool = true)
+#    filepath = joinpath(LITERATUR_DIR, filename)
+#    if !isfile(filepath)
+#        log_println(io, "\n[WARNUNG] Datei nicht gefunden: $filepath")
+#        log_println(io, "Bitte führe zuvor einmalig `prepare_thesis_datasets.py` aus!")
+#        return
+#    end
+#    x_mat = load_csv_matrix(filepath)
+#    ε_val = 0.1 * (maximum(x_mat) - minimum(x_mat))
+#    evaluate_system_optimized(io, title, x_mat, ε_val, M; run_norb=run_norb)
+#end
 
 # ====================================================================
 # 3. LOKALE MODELL-GENERATOREN & HAUPTSCHLEIFE (KLASSEN 1 BIS 8)

@@ -11,7 +11,7 @@ Set-Location -Path "C:\Users\Benedict\OneDrive\Dokumente\Phzsik\Bachelor\PIK\Bac
 Get-ChildItem *.jl
 
 # 3. Julia im Single-Core-HPC-Modus starten und Ausgabe live anzeigen + speichern
-julia --project=".." --startup-file=no -O3 --threads=1 my_test_big_RP_7.jl 2>&1 | Tee-Object -FilePath "extern_windPS_7.txt"
+julia --project=".." --startup-file=no -O3 --threads=1 my_test_big_RP_7.jl 2>&1 | Tee-Object -FilePath "extern_windPS_mtbRP7_2.txt"
 
 
 --project="..": Lädt exakt deine Julia-Umgebung aus dem übergeordneten Ordner BA - Steil.

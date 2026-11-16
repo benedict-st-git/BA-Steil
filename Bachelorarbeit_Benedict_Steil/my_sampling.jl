@@ -3002,12 +3002,27 @@ end
 """
 Zusatzfunktion 6: rand_sample_lfb_svec
 """
-function rand_sample_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M::Int, W_theiler::Int, apply_correction::Bool) where {T<:AbstractFloat}
+function rand_sample_lfb_svec(
+    rng::AbstractRNG, 
+    x::AbstractVector{<:SVector}, 
+    ε2::T, 
+    M::Int, 
+    W_theiler::Int, 
+    apply_correction::Bool
+) where {T<:AbstractFloat}
     N = length(x)
     L_local = zeros(Float64, N)
     
-    total_pairs = (N * (N - 1)) >> 1
-    max_searches = max(M * 200, total_pairs << 1)
+    # Minimaler Diagonal-Abstand d = i - j:
+    # Ohne Korrektur nur LOI ausschließen (min_dist = 1), mit Korrektur W_theiler + 1
+    min_dist = apply_correction ? clamp(W_theiler + 1, 1, N - 1) : 1
+    L_tri = N - min_dist
+    if L_tri < 1
+        return L_local, 0
+    end
+
+    valid_pairs = (L_tri * (L_tri + 1)) >> 1
+    max_searches = max(M * 200, valid_pairs << 1)
     
     K = 50; W_conv = 5; tol = 1e-3; min_samples = 500   
     det_ring = zeros(Float64, W_conv); l_ring = zeros(Float64, W_conv)
@@ -3017,21 +3032,16 @@ function rand_sample_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε
         if countAll > max_searches; break; end
         countAll += 1                 
 
-        u1 = rand(rng, 1:N)
-        u2 = rand(rng, 1:N)
-        
-        # 1. Theiler Window Rejection (rasend schnell, perfekte Branch Prediction)
-        if abs(u1 - u2) <= W_theiler
-            continue
-        end
-        
-        # i ist immer die Zeile (größer), j die Spalte (kleiner)
-        j_start, i_start = minmax(u1, u2)
+        # Branchless Triangle-Folding (0% Rejection, 100% gleichverteilt für i - j >= min_dist)
+        a = rand(rng, 1:L_tri)
+        b = rand(rng, 1:(L_tri + 1))
+        is_upper = a < b
+        j_start = ifelse(is_upper, a, L_tri + 1 - a)
+        i_start = ifelse(is_upper, b - 1 + min_dist, L_tri + 1 - b + min_dist)
 
         d2 = sq_dist(x, i_start, j_start)
         if d2 > ε2; continue; end
         
-        # 2. Skeletonisierung (nur falls aktiviert)
         if apply_correction && !is_ridge(x, i_start, j_start, d2, N)
             continue
         end
@@ -3040,7 +3050,7 @@ function rand_sample_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε
         @inbounds for k_offset in 1:(N - i_start) 
             if sq_dist(x, i_start + k_offset, j_start + k_offset) <= ε2; cnt += 1; else; break; end
         end
-        @inbounds for k_offset in 1:(j_start-1) 
+        @inbounds for k_offset in 1:(j_start - 1) 
             if sq_dist(x, i_start - k_offset, j_start - k_offset) <= ε2; cnt += 1; else; break; end
         end
         
@@ -3068,6 +3078,73 @@ function rand_sample_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε
     
     return L_local, countAll
 end
+
+#function rand_sample_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M::Int, W_theiler::Int, apply_correction::Bool) where {T<:AbstractFloat}
+#    N = length(x)
+#    L_local = zeros(Float64, N)
+#    
+#    total_pairs = (N * (N - 1)) >> 1
+#    max_searches = max(M * 200, total_pairs << 1)
+#    
+#    K = 50; W_conv = 5; tol = 1e-3; min_samples = 500   
+#    det_ring = zeros(Float64, W_conv); l_ring = zeros(Float64, W_conv)
+#    ring_idx = 1; history_count = 0; sum_n2_L = 0.0; sum_L2 = 0.0; count = 0; countAll = 0 
+#
+#    while count < M
+#        if countAll > max_searches; break; end
+#        countAll += 1                 
+#
+#        u1 = rand(rng, 1:N)
+#        u2 = rand(rng, 1:N)
+#        
+#        # 1. Theiler Window Rejection (rasend schnell, perfekte Branch Prediction)
+#        if abs(u1 - u2) <= W_theiler
+#            continue
+#        end
+#        
+#        # i ist immer die Zeile (größer), j die Spalte (kleiner)
+#        j_start, i_start = minmax(u1, u2)
+#
+#        d2 = sq_dist(x, i_start, j_start)
+#        if d2 > ε2; continue; end
+#        
+#        # 2. Skeletonisierung (nur falls aktiviert)
+#        if apply_correction && !is_ridge(x, i_start, j_start, d2, N)
+#            continue
+#        end
+#
+#        cnt = 1 
+#        @inbounds for k_offset in 1:(N - i_start) 
+#            if sq_dist(x, i_start + k_offset, j_start + k_offset) <= ε2; cnt += 1; else; break; end
+#        end
+#        @inbounds for k_offset in 1:(j_start-1) 
+#            if sq_dist(x, i_start - k_offset, j_start - k_offset) <= ε2; cnt += 1; else; break; end
+#        end
+#        
+#        if cnt > 0 
+#            weight = 1.0 / cnt
+#            @inbounds L_local[cnt] += weight    
+#            count += 1                
+#
+#            is_long = cnt >= 2
+#            sum_n2_L += is_long ? 1.0 : 0.0
+#            sum_L2   += is_long ? weight : 0.0
+#
+#            if count % K == 0 && count >= min_samples
+#                @inbounds det_ring[ring_idx] = sum_n2_L / count
+#                @inbounds l_ring[ring_idx]   = sum_n2_L / sum_L2
+#                ring_idx = (ring_idx % W_conv) + 1
+#                history_count += 1
+#                
+#                if history_count >= W_conv && calc_rel_change(det_ring) < tol && calc_rel_change(l_ring) < tol
+#                    break
+#                end
+#            end
+#        end          
+#    end
+#    
+#    return L_local, countAll
+#end
 
 #function rand_sample_lfb_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, M::Int, W_theiler::Int, W_soujourn::Int, true_line_test::Bool = false) where {T<:AbstractFloat}
 #    N = length(x)
@@ -3491,13 +3568,14 @@ function get_hist_diagonal_woRP_2(
     ε2 = Float64(ε^2)
 
     W_theiler = apply_artefact_correction ? estimate_W(rng, x, Float64(ε)) : 0
-    i_start   = apply_artefact_correction ? min(W_theiler + 2, N + 1) : 2  # was??????????
+    # d ist der direkte Abstand zur Hauptdiagonalen (d = r - c):
+    # Ohne Korrektur ab d = 1 (erste Nebendiagonale), mit Korrektur ab d = W_theiler + 1
+    d_start = apply_artefact_correction ? min(W_theiler + 1, N) : 1
 
-    @inbounds for i in i_start:N
+    @inbounds for d in d_start:(N - 1)
         cnt = 0
-        @inbounds for j in 1:(N - i + 1)
-            r = i + j - 1           # hä?????????
-            c = j                   # ????????????
+        @inbounds for c in 1:(N - d)
+            r = c + d # Zeile r liegt exakt d Schritte über Spalte c (r > c)
             
             D2 = sq_dist(x, r, c)
             is_black = D2 <= ε2
@@ -3523,6 +3601,49 @@ function get_hist_diagonal_woRP_2(
     return L
 end
 
+#function get_hist_diagonal_woRP_2(
+#    x::AbstractVector{<:SVector}, 
+#    ε::T, 
+#    apply_artefact_correction::Bool = false; 
+#    rng::AbstractRNG = Random.default_rng()
+#) where {T<:AbstractFloat}
+#    N = length(x)
+#    L = zeros(Int, N)
+#    ε2 = Float64(ε^2)
+#
+#    W_theiler = apply_artefact_correction ? estimate_W(rng, x, Float64(ε)) : 0
+#    i_start   = apply_artefact_correction ? min(W_theiler + 2, N + 1) : 2  # was??????????
+#
+#    @inbounds for i in i_start:N
+#        cnt = 0
+#        @inbounds for j in 1:(N - i + 1)
+#            r = i + j - 1           # hä?????????
+#            c = j                   # ????????????
+#            
+#            D2 = sq_dist(x, r, c)
+#            is_black = D2 <= ε2
+#            
+#            if is_black && apply_artefact_correction
+#                is_black = is_ridge(x, r, c, D2, N)
+#            end
+#            
+#            if is_black
+#                cnt += 1
+#            else
+#                if cnt > 0
+#                    L[cnt] += 1
+#                    cnt = 0
+#                end
+#            end
+#        end
+#        if cnt > 0
+#            L[cnt] += 1
+#        end
+#    end
+#
+#    return L
+#end
+#
 #function get_hist_diagonal_woRP_2(x::AbstractVector{<:SVector}, ε::T, apply_artefact_correction::Bool = false; rng::AbstractRNG = Random.default_rng()) where {T<:AbstractFloat}
 #    N = length(x)
 #    L = zeros(Int, N)
