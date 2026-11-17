@@ -1,0 +1,11 @@
+samples (in estimate_epsilon_sq_by_rr)
+target_rr (in estimate_epsilon_sq_by_rr)
+\varepsilon (nur in xxxx nicht) und dann in maske \varepsilon2
+K (nur in xxxx nicht)
+W für konvergenz 
+W_theiler
+W_soujorn
+M
+rng
+x
+artefact_steps (also schritte die in spalte nach oben und unten geprüft werden mit is_ridge, bei realen daten möglicherweise sinnvoll anzupassen laut gemini)

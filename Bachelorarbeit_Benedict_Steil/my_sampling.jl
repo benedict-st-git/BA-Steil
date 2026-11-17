@@ -1880,10 +1880,10 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
     period_equidistance_error = 2 
     
     # W_theiler und W_soujorn schätzen (werden u.a. für den Periodicity-Check benötigt)
-    W_theiler = estimate_W(rng, x, sqrt(ε2)) 
+    W_theiler = estimate_W(rng, x, ε2) 
     W_soujorn = max(3, W_theiler)           
     
-    estimated_RR = estimate_RR_svec(rng, x, sqrt(ε2))
+    estimated_RR = estimate_RR_svec(rng, x, ε2)
     max_fails = clamp(round(Int, 3.0 / max(estimated_RR, 0.01)), 15, 150)
    
     is_periodic = check_periodicity_block(x, N, check_length, max_misses, period_equidistance_error, W_soujorn, max_fails, ε2)
@@ -2010,10 +2010,10 @@ end
 #        end
 #        
 #        misses = 0 # wegen ?zähler? 0 und nicht zero(T) ?!?
-#        if sq_dist(x, i, current) <= ε2  # point in row i and therefore diagonal d is black => line following (up)
+#        if sq_dist_svec(x, i, current) <= ε2  # point in row i and therefore diagonal d is black => line following (up)
 #            is_long_line = true
 #            @inbounds for offset in 1:check_length
-#                if sq_dist(x, i+offset, current+offset) > ε2          # line is shorter than check_length
+#                if sq_dist_svec(x, i+offset, current+offset) > ε2          # line is shorter than check_length
 #                    misses += 1
 #                    if misses >= max_misses
 #                        is_long_line = false
@@ -2120,21 +2120,21 @@ end
 #            j_start, i_start = minmax(u1, u2)
 #
 #            # 
-#            if sq_dist(x, i_start, j_start) > ε2
+#            if sq_dist_svec(x, i_start, j_start) > ε2
 #                continue  # kein schwarzer Punkt, nächster Versuch
 #            end
 #
 #            # Black Point found, now count line length
 #            cnt = 1 # einen haben wir ja schon gefunden
 #            @inbounds for offset in 1:(N - i_start) # von eins, denn einen haben wir ja schon gefunden
-#                if sq_dist(x, i_start + offset, j_start + offset) <= ε2          # Count points belonging to diagonal
+#                if sq_dist_svec(x, i_start + offset, j_start + offset) <= ε2          # Count points belonging to diagonal
 #                    cnt += 1              # Extend diagonal
 #                else
 #                    break                 # Line ends
 #                end
 #            end
 #            @inbounds for offset in 1:(j_start-1) # weshalb klappt das?
-#                if sq_dist(x, i_start - offset, j_start - offset) <= ε2          # Count points belonging to diagonal
+#                if sq_dist_svec(x, i_start - offset, j_start - offset) <= ε2          # Count points belonging to diagonal
 #                    cnt += 1              # Extend diagonal
 #                else
 #                    break                 # Line ends
@@ -2239,7 +2239,7 @@ end
 #                j_start = idx - previous_elements     # spalte
 #                i_start = j_start + d
 #
-#                if sq_dist(x, i_start, j_start) > ε2
+#                if sq_dist_svec(x, i_start, j_start) > ε2
 #                    continue  
 #                else
 #                    active_box_count += 1
@@ -2281,21 +2281,21 @@ end
 #            j_start = idx - previous_elements     # spalte
 #            i_start = j_start + d                 # zeile größer spalte => oberes dreieck (diagonale von links unten nach rechts oben und achsen-nullpunkt links unten)
 #
-#            if sq_dist(x, i_start, j_start) > ε2
+#            if sq_dist_svec(x, i_start, j_start) > ε2
 #                continue  # kein schwarzer Punkt, nächster Versuch
 #            end
 #
 #            # Black Point found, now count line length
 #            cnt = 1 # einen haben wir ja schon gefunden
 #            @inbounds for offset in 1:(N - i_start) # einen haben wir ja schon gefunden
-#                if sq_dist(x, i_start + offset, j_start + offset) <= ε2          # Count points belonging to diagonal
+#                if sq_dist_svec(x, i_start + offset, j_start + offset) <= ε2          # Count points belonging to diagonal
 #                    cnt += 1              # Extend diagonal
 #                else
 #                    break                 # Line ends
 #                end
 #            end
 #            @inbounds for offset in 1:(j_start-1) # weshalb klappt das?
-#                if sq_dist(x, i_start - offset, j_start - offset) <= ε2          # Count points belonging to diagonal
+#                if sq_dist_svec(x, i_start - offset, j_start - offset) <= ε2          # Count points belonging to diagonal
 #                    cnt += 1              # Extend diagonal
 #                else
 #                    break                 # Line ends
@@ -2804,20 +2804,37 @@ end
 Zusatzfunktion 1: estimate_RR
 """
 # 1. Optimal für hybrid1_dep_wnlfb (mit SVector und übergebenem RNG)
-@inline function estimate_RR_svec(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε::T) where {T<:AbstractFloat}
+@inline function estimate_RR_svec(
+    rng::AbstractRNG, 
+    x::AbstractVector{<:SVector}, 
+    ε2::T,
+    apply_correction::Bool
+) where {T<:AbstractFloat}
+
     N = length(x)
-    total_pairs = N * (N - 1) ÷ 2
-    ε2 = ε^2
+
+    offset = 0
+    if apply_correction
+        W_eff = clamp(W_theiler, 0, N - 2)
+        offset = (W_eff * N) - ((W_eff * (W_eff + 1)) >> 1)
+    end
+    
+    total_effective_pairs = max(1, total_pairs - offset)
+    
+    #ε2 = ε^2 redundant?!
     hits = 0  
-    samples = min(2000, max(1, round(Int, 0.1 * total_pairs)))
+    samples = min(2000, max(1, round(Int, 0.1 * total_effective_pairs)))
 
     # NUR @inbounds! Kein @simd wegen rand() und kein @fastmath für Integer.
     @inbounds for _ in 1:samples
-        d = rand(rng, 1:(N-1))
-        j_start = rand(rng, 1:(N - d))
-        i_start = j_start + d
+        u1 = rand(rng, offset + 1:N)       # = j = spalte (kleiner)
+        u2 = rand(rng, u1 + offset + 1:N)  # = i = zeile (größer)
+
+        #d = rand(rng, 1:(N-1))
+        #j_start = rand(rng, 1:(N - d))
+        #i_start = j_start + d
         
-        if sq_dist(x, i_start, j_start) <= ε2
+        if sq_dist_svec(x, u2, u1) <= ε2
             hits += 1
         end
     end
@@ -2838,7 +2855,7 @@ end
         j_start = rand(1:(N - d))
         i_start = j_start + d
         
-        # Manuelle Distanzberechnung, da sq_dist nur für SVector existiert
+        # Manuelle Distanzberechnung, da sq_dist_svec nur für SVector existiert
         D2 = zero(T)
         for k in 1:dim
             D2 += (x[i_start, k] - x[j_start, k])^2
@@ -2858,34 +2875,25 @@ Zusatzfunktion 2: estimate_W
 @inline function sample_sojourn_time(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T, N::Int) where {T<:AbstractFloat}
     idx = rand(rng, 2:N)  
     misses = 0
-    offset = 1
-    idx_minus_offset = idx - offset
-    
+    j = idx - 1
     last_black_W = 0 
-    current_W = 0
     max_misses = 3
 
-    @inbounds while misses <= max_misses && idx_minus_offset >= 1
-        current_W += 1
-
-        if sq_dist(x, idx, idx_minus_offset) <= ε2
+    @inbounds while misses <= max_misses && j >= 1
+        if sq_dist(x, idx, j) <= ε2
             misses = 0  
-            last_black_W = current_W 
+            last_black_W = idx - j
         else
             misses += 1
         end
-
-        offset += 1
-        idx_minus_offset = idx - offset
+        j -= 1
     end
     
     return last_black_W
 end
 
-function estimate_W(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε::T) where {T<:AbstractFloat}
+@inline function estimate_W(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T) where {T<:AbstractFloat}
     N = length(x)
-    ε2 = ε^2
-
     w1 = sample_sojourn_time(rng, x, ε2, N)
     w2 = sample_sojourn_time(rng, x, ε2, N)
     w3 = sample_sojourn_time(rng, x, ε2, N)
@@ -2896,9 +2904,9 @@ function estimate_W(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε::T) where
 end
 
 """
-Zusatzfunktion 3: sq_dist 
+Zusatzfunktion 3: sq_dist_svec 
 """
-@inline function sq_dist(x::AbstractVector{<:SVector}, i::Int, j::Int)
+@inline function sq_dist_svec(x::AbstractVector{<:SVector}, i::Int, j::Int)
     # @inbounds hier hinzugefügt, damit das Auslesen aus x keine Array-Grenzen prüft
     @inbounds p_i = x[i] # wir haben doch mit dem Svector dim in den zeilen und die zeit in den spalten?!? wenn nur ein idx, also x[i] übergeben wird, dann sit das doch eigentlich die zeile? und wie beschrieben, wollen wir ja i und j als zeitpunkt angeben?!? 
     @inbounds p_j = x[j]
@@ -2924,8 +2932,17 @@ end
 """
 Zusatzfunktion 5: check_periodicity_block
 """
-
-@inline function check_periodicity_block(x::AbstractVector{<:SVector}, N::Int, check_length::Int, max_misses::Int, period_equidistance_error::Int, W_soujorn::Int, max_fails::Int, ε2::Float64)
+@inline function check_periodicity_block(
+    x::AbstractVector{<:SVector}, 
+    N::Int, 
+    check_length::Int, 
+    max_misses::Int, 
+    period_equidistance_error::Int, 
+    W_soujorn::Int, 
+    max_fails::Int, 
+    ε2::T
+) where {T<:AbstractFloat}    
+    
     long_lines = 0
     d1 = d2 = d3 = d4 = d5 = -1 
     d12 = d23 = d34 = d45 = d13 = d24 = d14 = d15 = d25 = d35 = 0 
@@ -2939,11 +2956,11 @@ Zusatzfunktion 5: check_periodicity_block
             return false
         end
         
-        if sq_dist(x, i, current) <= ε2
+        if sq_dist_svec(x, i, current) <= ε2
             is_long_line = true
             misses = 0
             @inbounds for offset in 1:check_length
-                if sq_dist(x, i+offset, current+offset) > ε2          
+                if sq_dist_svec(x, i+offset, current+offset) > ε2          
                     misses += 1
                     if misses >= max_misses
                         is_long_line = false
@@ -3010,6 +3027,7 @@ function rand_sample_lfb_svec(
     W_theiler::Int, 
     apply_correction::Bool
 ) where {T<:AbstractFloat}
+    
     N = length(x)
     L_local = zeros(Float64, N)
     
@@ -3020,11 +3038,10 @@ function rand_sample_lfb_svec(
     if L_tri < 1
         return L_local, 0
     end
-
     valid_pairs = (L_tri * (L_tri + 1)) >> 1
     max_searches = max(M * 200, valid_pairs << 1)
     
-    K = 50; W_conv = 5; tol = 1e-3; min_samples = 500   
+    K = 50; W_conv = 5; tol = 1e-3; min_samples = 500; next_conv_check = min_samples
     det_ring = zeros(Float64, W_conv); l_ring = zeros(Float64, W_conv)
     ring_idx = 1; history_count = 0; sum_n2_L = 0.0; sum_L2 = 0.0; count = 0; countAll = 0 
 
@@ -3039,7 +3056,7 @@ function rand_sample_lfb_svec(
         j_start = ifelse(is_upper, a, L_tri + 1 - a)
         i_start = ifelse(is_upper, b - 1 + min_dist, L_tri + 1 - b + min_dist)
 
-        d2 = sq_dist(x, i_start, j_start)
+        d2 = sq_dist_svec(x, i_start, j_start)
         if d2 > ε2; continue; end
         
         if apply_correction && !is_ridge(x, i_start, j_start, d2, N)
@@ -3048,30 +3065,31 @@ function rand_sample_lfb_svec(
 
         cnt = 1 
         @inbounds for k_offset in 1:(N - i_start) 
-            if sq_dist(x, i_start + k_offset, j_start + k_offset) <= ε2; cnt += 1; else; break; end
+            if sq_dist_svec(x, i_start + k_offset, j_start + k_offset) <= ε2; cnt += 1; else; break; end
         end
         @inbounds for k_offset in 1:(j_start - 1) 
-            if sq_dist(x, i_start - k_offset, j_start - k_offset) <= ε2; cnt += 1; else; break; end
+            if sq_dist_svec(x, i_start - k_offset, j_start - k_offset) <= ε2; cnt += 1; else; break; end
         end
         
-        if cnt > 0 
-            weight = 1.0 / cnt
-            @inbounds L_local[cnt] += weight    
-            count += 1                
+ 
+        weight = 1.0 / cnt
+        @inbounds L_local[cnt] += weight    
+        count += 1                
 
-            is_long = cnt >= 2
-            sum_n2_L += is_long ? 1.0 : 0.0
-            sum_L2   += is_long ? weight : 0.0
+        is_long = cnt >= 2
+        sum_n2_L += is_long ? 1.0 : 0.0
+        sum_L2   += is_long ? weight : 0.0
 
-            if count % K == 0 && count >= min_samples
-                @inbounds det_ring[ring_idx] = sum_n2_L / count
-                @inbounds l_ring[ring_idx]   = sum_n2_L / sum_L2
-                ring_idx = (ring_idx % W_conv) + 1
-                history_count += 1
-                
-                if history_count >= W_conv && calc_rel_change(det_ring) < tol && calc_rel_change(l_ring) < tol
-                    break
-                end
+        if count == next_conv_check
+            next_conv_check += K
+            @inbounds det_ring[ring_idx] = sum_n2_L / count
+            @inbounds l_ring[ring_idx]   = sum_n2_L / sum_L2
+            ring_idx = ifelse(ring_idx == W_conv, 1, ring_idx + 1)
+            #ring_idx = (ring_idx % W_conv) + 1
+            history_count += 1
+            
+            if history_count >= W_conv && calc_rel_change(det_ring) < tol && calc_rel_change(l_ring) < tol
+                break
             end
         end          
     end
@@ -3105,7 +3123,7 @@ end
 #        # i ist immer die Zeile (größer), j die Spalte (kleiner)
 #        j_start, i_start = minmax(u1, u2)
 #
-#        d2 = sq_dist(x, i_start, j_start)
+#        d2 = sq_dist_svec(x, i_start, j_start)
 #        if d2 > ε2; continue; end
 #        
 #        # 2. Skeletonisierung (nur falls aktiviert)
@@ -3115,10 +3133,10 @@ end
 #
 #        cnt = 1 
 #        @inbounds for k_offset in 1:(N - i_start) 
-#            if sq_dist(x, i_start + k_offset, j_start + k_offset) <= ε2; cnt += 1; else; break; end
+#            if sq_dist_svec(x, i_start + k_offset, j_start + k_offset) <= ε2; cnt += 1; else; break; end
 #        end
 #        @inbounds for k_offset in 1:(j_start-1) 
-#            if sq_dist(x, i_start - k_offset, j_start - k_offset) <= ε2; cnt += 1; else; break; end
+#            if sq_dist_svec(x, i_start - k_offset, j_start - k_offset) <= ε2; cnt += 1; else; break; end
 #        end
 #        
 #        if cnt > 0 
@@ -3177,14 +3195,14 @@ end
 #        if u1 == u2; continue; end    # das heißt doch, dass wenn u1 = u2 dann zählen wir ein countAll dazu, ohne dass eine prüfung durchgeführt worden ist??
 #        j_start, i_start = minmax(u1, u2)  # heißt das linke bekommt das min und das rechte das max zugewiesen?? also für oberes dreieck, wenn die LOI von links unten nachr echts oben, ist j die x achse (spalten) und i die  y (zeilen) ?
 #
-#        if sq_dist(x, i_start, j_start) > ε2; continue; end
+#        if sq_dist_svec(x, i_start, j_start) > ε2; continue; end
 #
 #        cnt = 1 
 #        @inbounds for offset in 1:(N - i_start) 
-#            if sq_dist(x, i_start + offset, j_start + offset) <= ε2; cnt += 1; else; break; end
+#            if sq_dist_svec(x, i_start + offset, j_start + offset) <= ε2; cnt += 1; else; break; end
 #        end
 #        @inbounds for offset in 1:(j_start-1) 
-#            if sq_dist(x, i_start - offset, j_start - offset) <= ε2; cnt += 1; else; break; end
+#            if sq_dist_svec(x, i_start - offset, j_start - offset) <= ε2; cnt += 1; else; break; end
 #        end
 #        
 #        if cnt > 0 
@@ -3218,20 +3236,20 @@ Zusatzfunktion 7: smi_lfb_svec
 function smi_lfb_svec(
     rng::AbstractRNG, 
     x::AbstractVector{<:SVector}, 
-    ε2::Float64, 
+    ε2::T, 
     M::Int, 
-    estimated_RR::Float64, 
+    estimated_RR::Float64,             # weshalb hier und eine weiter nicht T?
     s::Union{Float64, Nothing}, 
     W_theiler::Int, 
     apply_correction::Bool
-)
+) where {T<:AbstractFloat}  
     N = length(x)
     L_local = zeros(Float64, N)
     
     total_pairs = (N * (N - 1)) >> 1
     max_searches = max(M * 200, total_pairs << 1)
     
-    K = 50; W_conv = 5; tol = 1e-3; min_samples = 500   
+    K = 50; W_conv = 5; tol = 1e-3; min_samples = 500; next_conv_check = min_samples  
     det_ring = zeros(Float64, W_conv); l_ring = zeros(Float64, W_conv)
     ring_idx = 1; history_count = 0; sum_n2_L = 0.0; sum_L2 = 0.0; count = 0; countAll = 0 
 
@@ -3250,7 +3268,6 @@ function smi_lfb_svec(
     
     N2_1_int = 2 * N - 1
     N2_1_sq = Float64(N2_1_int)^2
-    sum_n_L = 0.0
 
     while count < M
         if countAll > max_searches; break; end
@@ -3270,7 +3287,7 @@ function smi_lfb_svec(
         j_start = idx - (d_minus * N - (d_minus * d >> 1))
         i_start = j_start + d                 
 
-        d2 = sq_dist(x, i_start, j_start)
+        d2 = sq_dist_svec(x, i_start, j_start)
         if d2 > ε2; continue; end
         
         if apply_correction && !is_ridge(x, i_start, j_start, d2, N)
@@ -3279,30 +3296,31 @@ function smi_lfb_svec(
 
         cnt = 1 
         @inbounds for k_offset in 1:(N - i_start) 
-            if sq_dist(x, i_start + k_offset, j_start + k_offset) <= ε2; cnt += 1; else; break; end
+            if sq_dist_svec(x, i_start + k_offset, j_start + k_offset) <= ε2; cnt += 1; else; break; end
         end
         @inbounds for k_offset in 1:(j_start-1) 
-            if sq_dist(x, i_start - k_offset, j_start - k_offset) <= ε2; cnt += 1; else; break; end
+            if sq_dist_svec(x, i_start - k_offset, j_start - k_offset) <= ε2; cnt += 1; else; break; end
         end
         
-        if cnt > 0 
-            weight = 1.0 / cnt
-            @inbounds L_local[cnt] += weight         
-            count += 1                
-            
-            sum_n_L  += cnt * weight
-            is_long = cnt >= 2
-            sum_n2_L += is_long ? (cnt * weight) : 0.0
-            sum_L2   += is_long ? weight : 0.0
+        weight = 1.0 / cnt
+        @inbounds L_local[cnt] += weight    
+        count += 1                
 
-            if count % K == 0 && count >= min_samples
-                @inbounds det_ring[ring_idx] = sum_n2_L / sum_n_L
-                @inbounds l_ring[ring_idx]   = sum_n2_L / sum_L2
-                ring_idx = (ring_idx % W_conv) + 1
-                history_count += 1
-                if history_count >= W_conv && calc_rel_change(det_ring) < tol && calc_rel_change(l_ring) < tol
-                    break
-                end
+        is_long = cnt >= 2
+        sum_n2_L += is_long ? 1.0 : 0.0
+        sum_L2   += is_long ? weight : 0.0
+
+        if count == next_conv_check
+            next_conv_check += K
+        #if count % K == 0 && count >= min_samples
+            @inbounds det_ring[ring_idx] = sum_n2_L / count
+            @inbounds l_ring[ring_idx]   = sum_n2_L / sum_L2
+            ring_idx = ifelse(ring_idx == W_conv, 1, ring_idx + 1)
+            #ring_idx = (ring_idx % W_conv) + 1
+            history_count += 1
+            
+            if history_count >= W_conv && calc_rel_change(det_ring) < tol && calc_rel_change(l_ring) < tol
+                break
             end
         end          
     end
@@ -3367,7 +3385,7 @@ end
 #            j_start = idx - previous_elements     # spalte (oberes dreieck, j < i)
 #            i_start = j_start + d                 # zeile (oberes dreieck)
 #
-#            if sq_dist(x, i_start, j_start) <= ε2
+#            if sq_dist_svec(x, i_start, j_start) <= ε2
 #                active_box_count += 1
 #                active_boxs[active_box_count] = current_box    # zero allocation trick hier anwendbar?? also ohne array oder liste die boxs irwei speichern?!?
 #                break 
@@ -3393,14 +3411,14 @@ end
 #        j_start = idx - previous_elements     # spalte (oberes dreieck, j < i)
 #        i_start = j_start + d                 # zeile (oberes dreieck)
 #
-#        if sq_dist(x, i_start, j_start) > ε2; continue; end
+#        if sq_dist_svec(x, i_start, j_start) > ε2; continue; end
 #
 #        cnt = 1 
 #        @inbounds for offset in 1:(N - i_start) 
-#            if sq_dist(x, i_start + offset, j_start + offset) <= ε2; cnt += 1; else; break; end
+#            if sq_dist_svec(x, i_start + offset, j_start + offset) <= ε2; cnt += 1; else; break; end
 #        end
 #        @inbounds for offset in 1:(j_start-1) 
-#            if sq_dist(x, i_start - offset, j_start - offset) <= ε2; cnt += 1; else; break; end
+#            if sq_dist_svec(x, i_start - offset, j_start - offset) <= ε2; cnt += 1; else; break; end
 #        end
 #        
 #        if cnt > 0 
@@ -3434,20 +3452,25 @@ end
 Zusatzfunktion 8: is_ridge(x, i, j, d2, N) # skelettierung
 Prüft, ob der Punkt (i,j) ein "ridge" ist, d.h, distanz seines paares ist kleiner als der paare in seiner spalte einen drüber und drunter.
 """
-@inline function is_ridge(x::AbstractVector{<:SVector}, i::Int, j::Int, d2::Float64, N::Int) 
-    # True-Line-Test (Skeletonization) noch optimierbar??
-    if i - 1 > j
-        if sq_dist(x, i - 1, j) < d2
-            return false
-        end
-    end
-    if i + 1 <= N
-        if sq_dist(x, i + 1, j) <= d2
-            return false
-        end
-    end
+@inline function is_ridge(x::AbstractVector{<:SVector}, i::Int, j::Int, d2::T, N::Int) where {T<:AbstractFloat}  
+    (i - 1 > j) && (sq_dist_svec(x, i - 1, j) < d2) && return false
+    (i + 1 <= N) && (sq_dist_svec(x, i + 1, j) <= d2) && return false
     return true
 end
+#@inline function is_ridge(x::AbstractVector{<:SVector}, i::Int, j::Int, d2::Float64, N::Int) 
+#    # True-Line-Test (Skeletonization) noch optimierbar??
+#    if i - 1 > j
+#        if sq_dist_svec(x, i - 1, j) < d2
+#            return false
+#        end
+#    end
+#    if i + 1 <= N
+#        if sq_dist_svec(x, i + 1, j) <= d2
+#            return false
+#        end
+#    end
+#    return true
+#end
 
 
 """
@@ -3456,13 +3479,14 @@ Zusatzfunktion 9: activate_boxes_smi(rng, x, ε2, s_tilde, total_pairs, estimate
 function activate_boxes_smi(
     rng::AbstractRNG, 
     x::AbstractVector{<:SVector}, 
-    ε2::Float64, 
-    s_tilde::Float64, 
+    ε2::T, 
+    s_tilde::Float64,     # weshalb nicht T? 
     total_pairs::Int, 
     estimated_tries_per_box::Int, 
     W_theiler::Int, 
     apply_correction::Bool
-)
+) where {T<:AbstractFloat}  
+
     N = length(x)
     
     offset = 0
@@ -3495,7 +3519,7 @@ function activate_boxes_smi(
             j_start = idx - (d_minus * N - ((d_minus * d) >> 1))
             i_start = j_start + d
             
-            d2 = sq_dist(x, i_start, j_start)
+            d2 = sq_dist_svec(x, i_start, j_start)
             if d2 <= ε2
                 if apply_correction && !is_ridge(x, i_start, j_start, d2, N)
                     continue
@@ -3520,31 +3544,44 @@ Berechnet das optimale ε^2, sodass die Rekurrenzmatrix eine vorgegebene
 Target-Recurrence-Rate (z.B. 0.05 für 5%) aufweist.
 Nutzt einen hocheffizienten Monte-Carlo-Quantil-Schätzer.
 """
-function estimate_epsilon_sq_by_rr(rng::AbstractRNG, x::AbstractVector{<:SVector}, target_rr::Float64; samples::Int=100000)
+function estimate_epsilon_sq_by_rr(
+    rng::AbstractRNG, 
+    x::AbstractVector{<:SVector}, 
+    apply_artefact_correction::Bool = false;
+    target_rr::Float64; 
+    samples::Int=100000)
+
     N = length(x)
-    total_pairs = (N * (N - 1)) >> 1
+    offset = 0
+    if apply_correction
+        W_eff = clamp(W_theiler, 0, N - 2)
+        offset = (W_eff * N) - ((W_eff * (W_eff + 1)) >> 1)
+    end
+    
+    total_effective_pairs = max(1, total_pairs - offset)
     
     # Wenn die Matrix sehr klein ist, nehmen wir alle Paare, sonst die festgelegte Sample-Zahl
-    actual_samples = min(samples, total_pairs)
+    actual_samples = min(samples, total_effective_pairs)
     
     # Pre-Allokation für maximale Geschwindigkeit
     D2_samples = Vector{Float64}(undef, actual_samples)
     
-    count = 1
+    count = 0
     @inbounds while count <= actual_samples
         # 1. Uniformes Ziehen im oberen Dreieck ohne teure Wurzel-Mathematik (Index-Mapping)
-        u1 = rand(rng, 1:N)
-        u2 = rand(rng, 1:N)
-        
-        if u1 == u2
-            continue # LOI ignorieren
-        end
-        
-        # minmax sorgt dafür, dass j immer die Spalte (kleiner) und i die Zeile (größer) ist
-        j, i = minmax(u1, u2)
+        u1 = rand(rng, offset + 1:N)       # = j = spalte (kleiner)
+        u2 = rand(rng, u1 + offset + 1:N)  # = i = zeile (größer)
+
+        # folgendes ist nicht nötig, da wir u2 immer größer als u1 ziehen, statt u1 und u2 gleich rand(rng, 1:N):
+        #if u1 == u2
+        #    continue # LOI ignorieren
+        #end
+        #
+        ## minmax sorgt dafür, dass j immer die Spalte (kleiner) und i die Zeile (größer) ist
+        #j, i = minmax(u1, u2)
         
         # 2. Quadrierte Distanz berechnen
-        D2_samples[count] = sq_dist(x, i, j)
+        D2_samples[count] = sq_dist_svec(x, u2, u1)
         count += 1
     end
     
@@ -3563,11 +3600,12 @@ function get_hist_diagonal_woRP_2(
     apply_artefact_correction::Bool = false; 
     rng::AbstractRNG = Random.default_rng()
 ) where {T<:AbstractFloat}
+
     N = length(x)
     L = zeros(Int, N)
     ε2 = Float64(ε^2)
 
-    W_theiler = apply_artefact_correction ? estimate_W(rng, x, Float64(ε)) : 0
+    W_theiler = apply_artefact_correction ? estimate_W(rng, x, ε2) : 0
     # d ist der direkte Abstand zur Hauptdiagonalen (d = r - c):
     # Ohne Korrektur ab d = 1 (erste Nebendiagonale), mit Korrektur ab d = W_theiler + 1
     d_start = apply_artefact_correction ? min(W_theiler + 1, N) : 1
@@ -3577,10 +3615,10 @@ function get_hist_diagonal_woRP_2(
         @inbounds for c in 1:(N - d)
             r = c + d # Zeile r liegt exakt d Schritte über Spalte c (r > c)
             
-            D2 = sq_dist(x, r, c)
+            D2 = sq_dist_svec(x, r, c)
             is_black = D2 <= ε2
             
-            if is_black && apply_artefact_correction
+            if is_black && cnt == 0 && apply_artefact_correction
                 is_black = is_ridge(x, r, c, D2, N)
             end
             
@@ -3620,7 +3658,7 @@ end
 #            r = i + j - 1           # hä?????????
 #            c = j                   # ????????????
 #            
-#            D2 = sq_dist(x, r, c)
+#            D2 = sq_dist_svec(x, r, c)
 #            is_black = D2 <= ε2
 #            
 #            if is_black && apply_artefact_correction
@@ -3668,7 +3706,7 @@ end
 #            r = i + j - 1  # Zeile (row)
 #            c = j          # Spalte (col)
 #            
-#            D2 = sq_dist(x, r, c)
+#            D2 = sq_dist_svec(x, r, c)
 #            
 #            # 3. Flache, boolesche Pipeline (Perfekt für Branch-Prediction)
 #            is_black = D2 <= ε2
