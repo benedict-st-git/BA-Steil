@@ -9,3 +9,5 @@ M
 rng
 x
 artefact_steps (also schritte die in spalte nach oben und unten geprüft werden mit is_ridge, bei realen daten möglicherweise sinnvoll anzupassen laut gemini)
+max_misses (sample soujorn und check_periodicity)
+max_steps (check_periodicity)

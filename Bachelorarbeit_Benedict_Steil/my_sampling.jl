@@ -1863,14 +1863,23 @@ end
 
 
 """
-Sampling 4.2.1.1: hybrid1_dep ohne max_fails (und andere deps?) wnlfb
+Sampling: hybrid1 (1D-Diagonal-SMI mit O(1)-Strata & Adaptivem Fallback)
 """
-function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true, epsilon_quantile::Bool = false, apply_artefact_correction::Bool = false, rng::AbstractRNG = Random.default_rng()) where {T<:AbstractFloat}
+function hybrid1_dep_wnlfb(
+    x::AbstractVector{<:SVector}, 
+    ε::T, 
+    M::Int; 
+    s::Union{Float64, Nothing} = nothing, 
+    auto_s::Bool = true, 
+    epsilon_quantile::Bool = false, 
+    apply_artefact_correction::Bool = false, 
+    rng::AbstractRNG = Random.default_rng()
+) where {T<:AbstractFloat}
     N = length(x)                  
     
-    if epsilon_quantile == true
+    if epsilon_quantile
         target_rr = 0.05
-        ε2 = estimate_epsilon_sq_by_rr(rng, x, target_rr, samples=100000)
+        ε2 = T(estimate_epsilon_sq_by_rr(rng, x, target_rr; samples=100000))
     else
         ε2 = ε^2 
     end
@@ -1879,11 +1888,15 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
     max_misses = 3 
     period_equidistance_error = 2 
     
-    # W_theiler und W_soujorn schätzen (werden u.a. für den Periodicity-Check benötigt)
     W_theiler = estimate_W(rng, x, ε2) 
     W_soujorn = max(3, W_theiler)           
     
-    estimated_RR = estimate_RR_svec(rng, x, ε2)
+    if epsilon_quantile && !apply_artefact_correction
+        estimated_RR = 0.05
+    else
+        estimated_RR = estimate_RR_svec(rng, x, ε2, W_theiler, apply_artefact_correction)
+    end
+    
     max_fails = clamp(round(Int, 3.0 / max(estimated_RR, 0.01)), 15, 150)
    
     is_periodic = check_periodicity_block(x, N, check_length, max_misses, period_equidistance_error, W_soujorn, max_fails, ε2)
@@ -1894,6 +1907,36 @@ function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union
         return smi_lfb_svec(rng, x, ε2, M, estimated_RR, s, W_theiler, apply_artefact_correction)
     end
 end
+
+#function hybrid1_dep_wnlfb(x::AbstractVector{<:SVector}, ε::T, M::Int; s::Union{Float64, Nothing} = nothing, auto_s::Bool = true, epsilon_quantile::Bool = false, apply_artefact_correction::Bool = false, rng::AbstractRNG = Random.default_rng()) where {T<:AbstractFloat}
+#    N = length(x)                  
+#    
+#    if epsilon_quantile 
+#        target_rr = 0.05
+#        ε2 = estimate_epsilon_sq_by_rr(rng, x, target_rr, samples=100000)
+#    else
+#        ε2 = ε^2 
+#    end
+#    
+#    check_length = clamp(N ÷ 20, 15, 100) 
+#    max_misses = 3 
+#    period_equidistance_error = 2 
+#    
+#    # W_theiler und W_soujorn schätzen (werden u.a. für den Periodicity-Check benötigt)
+#    W_theiler = estimate_W(rng, x, ε2) 
+#    W_soujorn = max(3, W_theiler)           
+#    
+#    estimated_RR = estimate_RR_svec(rng, x, ε2, W_theiler, apply_artefact_correction)
+#    max_fails = clamp(round(Int, 3.0 / max(estimated_RR, 0.01)), 15, 150)
+#   
+#    is_periodic = check_periodicity_block(x, N, check_length, max_misses, period_equidistance_error, W_soujorn, max_fails, ε2)
+#
+#    if is_periodic
+#        return rand_sample_lfb_svec(rng, x, ε2, M, W_theiler, apply_artefact_correction)
+#    else
+#        return smi_lfb_svec(rng, x, ε2, M, estimated_RR, s, W_theiler, apply_artefact_correction)
+#    end
+#end
 
 
 
@@ -2342,6 +2385,49 @@ end
 #    end
 #end
 
+"""
+Sampling: hybrid_smi_2D (2D-Kachel-SMI: 0 Wurzeln, Drift + Regimewechsel, Flächengewichtet)
+"""
+function hybrid2_tile2d_wnlfb(
+    x::AbstractVector{<:SVector}, 
+    ε::T, 
+    M::Int; 
+    G::Int = 12,
+    epsilon_quantile::Bool = false, 
+    apply_artefact_correction::Bool = false, 
+    rng::AbstractRNG = Random.default_rng()
+) where {T<:AbstractFloat}
+    N = length(x)                  
+    
+    if epsilon_quantile
+        target_rr = 0.05
+        ε2 = T(estimate_epsilon_sq_by_rr(rng, x, target_rr; samples=100000))
+    else
+        ε2 = ε^2 
+    end
+    
+    check_length = clamp(N ÷ 20, 15, 100) 
+    max_misses = 3 
+    period_equidistance_error = 2 
+    
+    W_theiler = estimate_W(rng, x, ε2) 
+    W_soujorn = max(3, W_theiler)           
+    
+    if epsilon_quantile && !apply_artefact_correction
+        estimated_RR = 0.05
+    else
+        estimated_RR = estimate_RR_svec(rng, x, ε2, W_theiler, apply_artefact_correction)
+    end
+    
+    max_fails = clamp(round(Int, 3.0 / max(estimated_RR, 0.01)), 15, 150)
+    is_periodic = check_periodicity_block(x, N, check_length, max_misses, period_equidistance_error, W_soujorn, max_fails, ε2)
+
+    if is_periodic
+        return rand_sample_lfb_svec(rng, x, ε2, M, W_theiler, apply_artefact_correction)
+    else
+        return tile2d_lfb_svec(rng, x, ε2, M, estimated_RR, G, W_theiler, apply_artefact_correction)
+    end
+end
 
 
 
@@ -2808,18 +2894,20 @@ Zusatzfunktion 1: estimate_RR
     rng::AbstractRNG, 
     x::AbstractVector{<:SVector}, 
     ε2::T,
-    apply_correction::Bool
+    W_theiler::Int = 0,  # why = 0??
+    apply_correction::Bool = false  # why = false??
 ) where {T<:AbstractFloat}
 
     N = length(x)
 
-    offset = 0
-    if apply_correction
-        W_eff = clamp(W_theiler, 0, N - 2)
-        offset = (W_eff * N) - ((W_eff * (W_eff + 1)) >> 1)
+    # Minimaler Diagonal-Abstand d = i - j:
+    # Ohne Korrektur nur LOI ausschließen (min_dist = 1), mit Korrektur W_theiler + 1
+    min_dist = apply_correction ? max(1, W_theiler + 1) : 1     # zu ignorierenden diags von LOI in oberes dreieck hinein gezählt. wedhalb besser als clamp(W_theiler + 1, 1, N - 1)??
+    L_tri = N - min_dist                                                 # N - anzahl an diagonalen = Kathetenlänge des verbleibenden gültigen Dreiecks im oberen RP
+    if L_tri < 1    # nur notfall?! ist notwendig nach min_dist = apply_correction ? clamp(W_theiler + 1, 1, N - 1) : 1 und L_tri = N - min_dist ??
+        return 0.0 # ??
     end
-    
-    total_effective_pairs = max(1, total_pairs - offset)
+    total_effective_pairs = (L_tri * (L_tri + 1)) >> 1  # bsp.: $\text{valid\_pairs} = \frac{4 \cdot 5}{2} = 10$ gültige Pixel-Paare $(i, j)$
     
     #ε2 = ε^2 redundant?!
     hits = 0  
@@ -2827,16 +2915,20 @@ Zusatzfunktion 1: estimate_RR
 
     # NUR @inbounds! Kein @simd wegen rand() und kein @fastmath für Integer.
     @inbounds for _ in 1:samples
-        u1 = rand(rng, offset + 1:N)       # = j = spalte (kleiner)
-        u2 = rand(rng, u1 + offset + 1:N)  # = i = zeile (größer)
-
+        # Branchless Triangle-Folding (0% Rejection, 100% gleichverteilt für i - j >= min_dist)
+        a = rand(rng, 1:L_tri)          # 
+        b = rand(rng, 1:(L_tri + 1))    # + 1 weshalb?? 
+        is_upper = a < b
+        j_start = ifelse(is_upper, a, L_tri + 1 - a)    # weshalb ifelse() und nicht is_upper ? .... : .... ?? eines von beiden immer oder nur an gewissen stellen superior?? spalte (oberes dreieck)
+        i_start = ifelse(is_upper, b - 1 + min_dist, L_tri + 1 - b + min_dist) # zeile (oberes dreieck) i > j
         #d = rand(rng, 1:(N-1))
         #j_start = rand(rng, 1:(N - d))
         #i_start = j_start + d
-        
-        if sq_dist_svec(x, u2, u1) <= ε2
-            hits += 1
-        end
+
+        d2 = sq_dist_svec(x, i_start, j_start)
+        if d2 > ε2 || (apply_correction && !is_ridge(x, i_start, j_start, d2, N)); continue; end
+
+        hits+= 1
     end
     
     return hits / samples
@@ -2877,10 +2969,10 @@ Zusatzfunktion 2: estimate_W
     misses = 0
     j = idx - 1
     last_black_W = 0 
-    max_misses = 3
+    max_misses = 3    
 
     @inbounds while misses <= max_misses && j >= 1
-        if sq_dist(x, idx, j) <= ε2
+        if sq_dist_svec(x, idx, j) <= ε2
             misses = 0  
             last_black_W = idx - j
         else
@@ -2894,6 +2986,9 @@ end
 
 @inline function estimate_W(rng::AbstractRNG, x::AbstractVector{<:SVector}, ε2::T) where {T<:AbstractFloat}
     N = length(x)
+    if N < 2
+        return 0
+    end
     w1 = sample_sojourn_time(rng, x, ε2, N)
     w2 = sample_sojourn_time(rng, x, ε2, N)
     w3 = sample_sojourn_time(rng, x, ε2, N)
@@ -2918,7 +3013,7 @@ Zusatzfunktion 4: calc_rel_change
 """
 @inline function calc_rel_change(window)
     # Diese Funktion ist absolut optimal für kleine Fenster (1-Pass-Algorithm)
-    mn = mx = sum_val = window[1]
+    @inbounds mn = mx = sum_val = window[1]
     @inbounds for i in 2:length(window)
         val = window[i]
         if val < mn; mn = val; end
@@ -2940,7 +3035,8 @@ Zusatzfunktion 5: check_periodicity_block
     period_equidistance_error::Int, 
     W_soujorn::Int, 
     max_fails::Int, 
-    ε2::T
+    ε2::T;
+    max_steps::Int = 2500
 ) where {T<:AbstractFloat}    
     
     long_lines = 0
@@ -2948,10 +3044,11 @@ Zusatzfunktion 5: check_periodicity_block
     d12 = d23 = d34 = d45 = d13 = d24 = d14 = d15 = d25 = d35 = 0 
     
     i = N - check_length 
-    current = i - max(3, W_soujorn)   # saplte, weshalb nicht W_theiler?
+    current = i - W_soujorn
+    min_col = max(1, current - max_steps) # muss nicht die ganze Zeile ablaufen?! weshalb??
     failed_attempts = 0
     
-    @inbounds while current >= 1
+    @inbounds while current >= min_col
         if failed_attempts >= max_fails
             return false
         end
@@ -3033,13 +3130,13 @@ function rand_sample_lfb_svec(
     
     # Minimaler Diagonal-Abstand d = i - j:
     # Ohne Korrektur nur LOI ausschließen (min_dist = 1), mit Korrektur W_theiler + 1
-    min_dist = apply_correction ? clamp(W_theiler + 1, 1, N - 1) : 1
-    L_tri = N - min_dist
-    if L_tri < 1
+    min_dist = apply_correction ? max(1, W_theiler + 1) : 1     # zu ignorierenden diags von LOI in oberes dreieck hinein gezählt
+    L_tri = N - min_dist                                                 # N - anzahl an diagonalen = Kathetenlänge des verbleibenden gültigen Dreiecks im oberen RP
+    if L_tri < 1    # nur notfall?! ist notwendig nach min_dist = apply_correction ? clamp(W_theiler + 1, 1, N - 1) : 1 und L_tri = N - min_dist ??
         return L_local, 0
     end
-    valid_pairs = (L_tri * (L_tri + 1)) >> 1
-    max_searches = max(M * 200, valid_pairs << 1)
+    total_effective_pairs = (L_tri * (L_tri + 1)) >> 1  # bsp.: $\text{valid\_pairs} = \frac{4 \cdot 5}{2} = 10$ gültige Pixel-Paare $(i, j)$
+    max_searches = max(M * 200, total_effective_pairs << 1)
     
     K = 50; W_conv = 5; tol = 1e-3; min_samples = 500; next_conv_check = min_samples
     det_ring = zeros(Float64, W_conv); l_ring = zeros(Float64, W_conv)
@@ -3050,18 +3147,26 @@ function rand_sample_lfb_svec(
         countAll += 1                 
 
         # Branchless Triangle-Folding (0% Rejection, 100% gleichverteilt für i - j >= min_dist)
-        a = rand(rng, 1:L_tri)
-        b = rand(rng, 1:(L_tri + 1))
+        a = rand(rng, 1:L_tri)          # 
+        b = rand(rng, 1:(L_tri + 1))    # + 1 weshalb?? 
         is_upper = a < b
-        j_start = ifelse(is_upper, a, L_tri + 1 - a)
-        i_start = ifelse(is_upper, b - 1 + min_dist, L_tri + 1 - b + min_dist)
+        j_start = ifelse(is_upper, a, L_tri + 1 - a)    # weshalb ifelse() und nicht is_upper ? .... : .... ?? eines von beiden immer oder nur an gewissen stellen superior?? spalte (oberes dreieck)
+        i_start = ifelse(is_upper, b - 1 + min_dist, L_tri + 1 - b + min_dist) # zeile (oberes dreieck) i > j
 
         d2 = sq_dist_svec(x, i_start, j_start)
         if d2 > ε2; continue; end
-        
+
+        # 1. Vertikale Strukturen IMMER auf rohem RP (VOR is_ridge!) messen
+        if compute_vertical
+            sample_vertical_at_seed!(V_local, x, i_start, j_start, ε2, N, min_dist)
+        end
+
+        # 2. Diagonale Strukturen (optional mit LMT-Ridge-Filter)
         if apply_correction && !is_ridge(x, i_start, j_start, d2, N)
             continue
         end
+        
+        #if d2 > ε2 || (apply_correction && !is_ridge(x, i_start, j_start, d2, N)); continue; end
 
         cnt = 1 
         @inbounds for k_offset in 1:(N - i_start) 
@@ -3077,13 +3182,13 @@ function rand_sample_lfb_svec(
         count += 1                
 
         is_long = cnt >= 2
-        sum_n2_L += is_long ? 1.0 : 0.0
-        sum_L2   += is_long ? weight : 0.0
+        sum_n2_L += ifelse(is_long, 1.0, 0.0)
+        sum_L2   += ifelse(is_long, weight, 0.0)
 
         if count == next_conv_check
             next_conv_check += K
             @inbounds det_ring[ring_idx] = sum_n2_L / count
-            @inbounds l_ring[ring_idx]   = sum_n2_L / sum_L2
+            @inbounds l_ring[ring_idx]   = sum_L2 > 0.0 ? (sum_n2_L / sum_L2) : 0.0
             ring_idx = ifelse(ring_idx == W_conv, 1, ring_idx + 1)
             #ring_idx = (ring_idx % W_conv) + 1
             history_count += 1
@@ -3231,7 +3336,7 @@ end
 #end
 
 """
-Zusatzfunktion 7: smi_lfb_svec
+Zusatzfunktion 7: smi_lfb_svec 1D
 """
 function smi_lfb_svec(
     rng::AbstractRNG, 
@@ -3253,18 +3358,23 @@ function smi_lfb_svec(
     det_ring = zeros(Float64, W_conv); l_ring = zeros(Float64, W_conv)
     ring_idx = 1; history_count = 0; sum_n2_L = 0.0; sum_L2 = 0.0; count = 0; countAll = 0 
 
-    # Stetige First-Principles-Formel aus der Geometrischen Verteilung (Konfidenzniveau 1 - α ≈ 92%):
+    # ????????? Stetige First-Principles-Formel aus der Geometrischen Verteilung (Konfidenzniveau 1 - α ≈ 92%):
     rr_clamped = clamp(estimated_RR, 0.005, 0.90)
-    actual_s = (s !== nothing) ? s : clamp(0.15 / rr_clamped, 0.5, 5.0)
+    target_boxes = (s !== nothing) ? Float64(M) * s : clamp(4.0 / rr_clamped, 32.0, 128.0)
     estimated_tries_per_box = clamp(ceil(Int, -2.5 / log1p(-rr_clamped)), 8, 60)
-    
-    s_tilde = M * actual_s
 
     # 1. Externe Box-Aktivierung
     active_boxs, active_box_count, offset, box_length_dyn, num_boxes = activate_boxes_smi(
-        rng, x, ε2, s_tilde, total_pairs, estimated_tries_per_box, W_theiler, apply_correction
+        rng, x, ε2, target_boxes, total_pairs, estimated_tries_per_box, W_theiler, apply_correction
     )
-    if active_box_count == 0; return L_local, countAll; end
+    if active_box_count == 0
+        return L_local, 0
+    end
+
+    # Adaptiver Fallback bei homogenem RP (>75% Boxen aktiv) -> 0 Wurzeln!
+    if s === nothing && active_box_count > 0.75 * num_boxes # === ??
+        return rand_sample_lfb_svec(rng, x, ε2, M, W_theiler, apply_correction)
+    end
     
     N2_1_int = 2 * N - 1
     N2_1_sq = Float64(N2_1_int)^2
@@ -3289,11 +3399,17 @@ function smi_lfb_svec(
 
         d2 = sq_dist_svec(x, i_start, j_start)
         if d2 > ε2; continue; end
-        
+
+        # 1. Vertikale Strukturen IMMER auf rohem RP (VOR is_ridge!) messen
+        if compute_vertical
+            sample_vertical_at_seed!(V_local, x, i_start, j_start, ε2, N, min_dist)
+        end
+
+        # 2. Diagonale Strukturen (optional mit LMT-Ridge-Filter)
         if apply_correction && !is_ridge(x, i_start, j_start, d2, N)
             continue
         end
-
+        
         cnt = 1 
         @inbounds for k_offset in 1:(N - i_start) 
             if sq_dist_svec(x, i_start + k_offset, j_start + k_offset) <= ε2; cnt += 1; else; break; end
@@ -3307,14 +3423,14 @@ function smi_lfb_svec(
         count += 1                
 
         is_long = cnt >= 2
-        sum_n2_L += is_long ? 1.0 : 0.0
-        sum_L2   += is_long ? weight : 0.0
+        sum_n2_L += ifelse(is_long, 1.0, 0.0)
+        sum_L2   += ifelse(is_long, weight, 0.0)
 
         if count == next_conv_check
             next_conv_check += K
         #if count % K == 0 && count >= min_samples
             @inbounds det_ring[ring_idx] = sum_n2_L / count
-            @inbounds l_ring[ring_idx]   = sum_n2_L / sum_L2
+            @inbounds l_ring[ring_idx]   = sum_L2 > 0.0 ? (sum_n2_L / sum_L2) : 0.0
             ring_idx = ifelse(ring_idx == W_conv, 1, ring_idx + 1)
             #ring_idx = (ring_idx % W_conv) + 1
             history_count += 1
@@ -3480,7 +3596,7 @@ function activate_boxes_smi(
     rng::AbstractRNG, 
     x::AbstractVector{<:SVector}, 
     ε2::T, 
-    s_tilde::Float64,     # weshalb nicht T? 
+    target_boxes::Float64, 
     total_pairs::Int, 
     estimated_tries_per_box::Int, 
     W_theiler::Int, 
@@ -3491,12 +3607,24 @@ function activate_boxes_smi(
     
     offset = 0
     if apply_correction
-        W_eff = clamp(W_theiler, 0, N - 2)
+        if W_theiler >= N - 1
+            return Int[], 0, total_pairs, 1, 0
+        end
+        W_eff = max(0, W_theiler)
         offset = (W_eff * N) - ((W_eff * (W_eff + 1)) >> 1)
     end
+    #if apply_correction
+    #    W_eff = clamp(W_theiler, 0, N - 2)
+    #    offset = (W_eff * N) - ((W_eff * (W_eff + 1)) >> 1)
+    #end
     
-    total_effective_pairs = max(1, total_pairs - offset)
-    num_boxes = min(total_effective_pairs, max(1, round(Int, s_tilde)))
+    total_effective_pairs = total_pairs - offset    
+    if total_effective_pairs < 1
+        return Int[], 0, offset, 1, 0
+    end
+    # ?? max(1, total_pairs - offset)
+    
+    num_boxes = min(total_effective_pairs, max(1, round(Int, target_boxes)))    # ?? min(total_effective_pairs, max(1, round(Int, s_tilde)))
     box_length_dyn = total_effective_pairs ÷ num_boxes 
     
     active_boxs = Vector{Int}(undef, num_boxes)
@@ -3520,15 +3648,11 @@ function activate_boxes_smi(
             i_start = j_start + d
             
             d2 = sq_dist_svec(x, i_start, j_start)
-            if d2 <= ε2
-                if apply_correction && !is_ridge(x, i_start, j_start, d2, N)
-                    continue
-                end
-                
-                active_box_count += 1
-                active_boxs[active_box_count] = current_box
-                break
-            end
+            if d2 > ε2 || (apply_correction && !is_ridge(x, i_start, j_start, d2, N)); continue; end
+            
+            active_box_count += 1
+            active_boxs[active_box_count] = current_box
+            break
         end
     end
     
@@ -3546,98 +3670,319 @@ Nutzt einen hocheffizienten Monte-Carlo-Quantil-Schätzer.
 """
 function estimate_epsilon_sq_by_rr(
     rng::AbstractRNG, 
-    x::AbstractVector{<:SVector}, 
-    apply_artefact_correction::Bool = false;
-    target_rr::Float64; 
-    samples::Int=100000)
+    x::AbstractVector{<:SVector{D, T}},    # ????
+    target_rr::Float64;
+    samples::Int=100000) where {D, T<:AbstractFloat} # T oder Float64 besser? weshalb??
 
     N = length(x)
-    offset = 0
-    if apply_correction
-        W_eff = clamp(W_theiler, 0, N - 2)
-        offset = (W_eff * N) - ((W_eff * (W_eff + 1)) >> 1)
-    end
-    
-    total_effective_pairs = max(1, total_pairs - offset)
+    L_tri = N - 1
+    total_pairs = (N * L_tri) >> 1    # ????
     
     # Wenn die Matrix sehr klein ist, nehmen wir alle Paare, sonst die festgelegte Sample-Zahl
-    actual_samples = min(samples, total_effective_pairs)
+    actual_samples = min(samples, total_pairs)
     
     # Pre-Allokation für maximale Geschwindigkeit
-    D2_samples = Vector{Float64}(undef, actual_samples)
-    
-    count = 0
-    @inbounds while count <= actual_samples
-        # 1. Uniformes Ziehen im oberen Dreieck ohne teure Wurzel-Mathematik (Index-Mapping)
-        u1 = rand(rng, offset + 1:N)       # = j = spalte (kleiner)
-        u2 = rand(rng, u1 + offset + 1:N)  # = i = zeile (größer)
-
-        # folgendes ist nicht nötig, da wir u2 immer größer als u1 ziehen, statt u1 und u2 gleich rand(rng, 1:N):
-        #if u1 == u2
-        #    continue # LOI ignorieren
-        #end
-        #
-        ## minmax sorgt dafür, dass j immer die Spalte (kleiner) und i die Zeile (größer) ist
-        #j, i = minmax(u1, u2)
-        
-        # 2. Quadrierte Distanz berechnen
-        D2_samples[count] = sq_dist_svec(x, u2, u1)
-        count += 1
+    D2_samples = Vector{T}(undef, actual_samples) 
+    # ?????????????
+    @inbounds for k in 1:actual_samples
+        a = rand(rng, 1:L_tri)
+        b = rand(rng, 1:(L_tri + 1))
+        is_upper = a < b
+        j = ifelse(is_upper, a, L_tri + 1 - a)
+        i = ifelse(is_upper, b, L_tri + 2 - b)
+        D2_samples[k] = sq_dist_svec(x, i, j)
     end
     
-    # 3. Das Quantil bestimmen. 
-    # quantile! sortiert/mutiert das Array in-place (O(N) Zeitkomplexität im Best-Case)
-    # und ist deutlich schneller als eine vollständige Sortierung (sort!).
     return quantile!(D2_samples, target_rr)
 end
+
+
+
+#    count = 1
+#    @inbounds while count <= actual_samples
+#        # 1. Uniformes Ziehen im oberen Dreieck ohne teure Wurzel-Mathematik (Index-Mapping)
+#        u1 = rand(rng, 1:N)       
+#        u2 = rand(rng, 1:N)       
+#
+#        if u1 == u2
+#            continue # LOI ignorieren
+#        end
+#        
+#        # minmax sorgt dafür, dass j immer die Spalte (kleiner) und i die Zeile (größer) ist
+#        j, i = minmax(u1, u2)
+#        
+#        # 2. Quadrierte Distanz berechnen
+#        D2_samples[count] = sq_dist_svec(x, i, j)
+#        count += 1
+#    end
+#    
+#    # 3. Das Quantil bestimmen. 
+#    # quantile! sortiert/mutiert das Array in-place (O(N) Zeitkomplexität im Best-Case)
+#    # und ist deutlich schneller als eine vollständige Sortierung (sort!).
+#    return quantile!(D2_samples, target_rr)
+#end
+
 
 """
 Zusatzfunktion 11: get_hist_diagonal_woRP_2 (Baseline mit SVector & optionaler Korrektur)
 """
-function get_hist_diagonal_woRP_2(
+"""
+Exakte O(N^2) Referenz-Baseline für diagonale (L) und optional vertikale (V) Linienhistogramme.
+"""
+function get_hist_woRP_2(
     x::AbstractVector{<:SVector}, 
     ε::T, 
     apply_artefact_correction::Bool = false; 
+    seed_only_mode::Bool = true,
+    compute_vertical::Bool = false,
     rng::AbstractRNG = Random.default_rng()
 ) where {T<:AbstractFloat}
-
     N = length(x)
-    L = zeros(Int, N)
-    ε2 = Float64(ε^2)
+    L = zeros(Float64, N)
+    V = compute_vertical ? zeros(Float64, N) : Float64[]
+    ε2 = ε^2
 
     W_theiler = apply_artefact_correction ? estimate_W(rng, x, ε2) : 0
-    # d ist der direkte Abstand zur Hauptdiagonalen (d = r - c):
-    # Ohne Korrektur ab d = 1 (erste Nebendiagonale), mit Korrektur ab d = W_theiler + 1
-    d_start = apply_artefact_correction ? min(W_theiler + 1, N) : 1
+    d_start = apply_artefact_correction ? max(1, W_theiler + 1) : 1
 
+    # 1. Diagonale Linien (oberes Dreieck)
     @inbounds for d in d_start:(N - 1)
         cnt = 0
-        @inbounds for c in 1:(N - d)
-            r = c + d # Zeile r liegt exakt d Schritte über Spalte c (r > c)
-            
+        ridge_cnt = 0
+        for c in 1:(N - d)
+            r = c + d
             D2 = sq_dist_svec(x, r, c)
             is_black = D2 <= ε2
-            
-            if is_black && cnt == 0 && apply_artefact_correction
+            if is_black && apply_artefact_correction && !seed_only_mode
                 is_black = is_ridge(x, r, c, D2, N)
             end
-            
             if is_black
                 cnt += 1
-            else
-                if cnt > 0
-                    L[cnt] += 1
-                    cnt = 0
+                if apply_artefact_correction && seed_only_mode && is_ridge(x, r, c, D2, N)
+                    ridge_cnt += 1
                 end
+            elseif cnt > 0
+                L[cnt] += (apply_artefact_correction && seed_only_mode) ? (ridge_cnt / cnt) : 1.0
+                cnt = 0
+                ridge_cnt = 0
             end
         end
         if cnt > 0
-            L[cnt] += 1
+            L[cnt] += (apply_artefact_correction && seed_only_mode) ? (ridge_cnt / cnt) : 1.0
         end
     end
 
-    return L
+    # 2. Exakte vertikale Linien im gesamten symmetrischen RP (ohne is_ridge!)
+    if compute_vertical
+        @inbounds for j in 1:N
+            cnt = 0
+            for i in 1:N
+                if abs(i - j) >= d_start && sq_dist_svec(x, i, j) <= ε2
+                    cnt += 1
+                elseif cnt > 0
+                    V[cnt] += 1.0
+                    cnt = 0
+                end
+            end
+            if cnt > 0
+                V[cnt] += 1.0
+            end
+        end
+    end
+
+    return compute_vertical ? (L, V) : L
 end
+
+"""
+Zusatzfunktion 12:
+Berechnet alle Standard-RQA-Maße (Marwan et al., 2007) in einem einzigen allokationsfreien O(N)-Pass.
+- `count_denom`: Für Sampler = `countAll_scaled`, für exakte Baseline = `total_effective_pairs`.
+- `V_hist`: Optionales vertikales Histogramm (für LAM, TT, V_max, V_ENTR).
+Hinweis zu L_max / V_max beim Sampling: Order-Statistiken (Maxima) sind bei Monte-Carlo-Sampling
+prinzipbedingt leicht nach unten verzerrt (sie bilden das Maximum der gezogenen Stichprobe ab,
+wobei lange Linien immerhin proportional zu ihrer Länge häufiger getroffen werden).
+"""
+function compute_rqa_measures(
+    L_hist::AbstractVector{<:Real},
+    count_denom::Real;
+    V_hist::Union{AbstractVector{<:Real}, Nothing} = nothing,
+    l_min::Int = 2,
+    v_min::Int = 2
+)
+    N = length(L_hist)
+    sum_all_pts = 0.0
+    sum_diag_pts = 0.0
+    sum_diag_lines = 0.0
+    L_max = 0
+
+    @inbounds for l in 1:N
+        c = Float64(L_hist[l])
+        if c > 0.0
+            pts = l * c
+            sum_all_pts += pts
+            if l >= l_min
+                sum_diag_pts += pts
+                sum_diag_lines += c
+                L_max = l
+            end
+        end
+    end
+
+    RR   = count_denom > 0 ? (sum_all_pts / count_denom) : 0.0
+    DET  = sum_all_pts > 0.0 ? (sum_diag_pts / sum_all_pts) : 0.0
+    L    = sum_diag_lines > 0.0 ? (sum_diag_pts / sum_diag_lines) : 0.0
+    DIV  = L_max > 0 ? (1.0 / L_max) : 0.0
+
+    # Shannon-Entropie (natürlicher Logarithmus nach Marwan et al., 2007)
+    ENTR = 0.0
+    if sum_diag_lines > 0.0
+        inv_lines = 1.0 / sum_diag_lines
+        @inbounds for l in l_min:L_max
+            c = Float64(L_hist[l])
+            if c > 0.0
+                p = c * inv_lines
+                ENTR -= p * log(p)
+            end
+        end
+    end
+
+    if V_hist === nothing
+        return (RR = RR, DET = DET, L = L, L_max = L_max, DIV = DIV, ENTR = ENTR)
+    end
+
+    # Vertikale Maße (LAM, TT, V_max, V_ENTR)
+    sum_v_all = 0.0
+    sum_v_pts = 0.0
+    sum_v_lines = 0.0
+    V_max = 0
+    @inbounds for v in 1:length(V_hist)
+        c = Float64(V_hist[v])
+        if c > 0.0
+            pts = v * c
+            sum_v_all += pts
+            if v >= v_min
+                sum_v_pts += pts
+                sum_v_lines += c
+                V_max = v
+            end
+        end
+    end
+
+    LAM = sum_v_all > 0.0 ? (sum_v_pts / sum_v_all) : 0.0
+    TT  = sum_v_lines > 0.0 ? (sum_v_pts / sum_v_lines) : 0.0
+    V_ENTR = 0.0
+    if sum_v_lines > 0.0
+        inv_v = 1.0 / sum_v_lines
+        @inbounds for v in v_min:V_max
+            c = Float64(V_hist[v])
+            if c > 0.0
+                p = c * inv_v
+                V_ENTR -= p * log(p)
+            end
+        end
+    end
+
+    return (
+        RR = RR, DET = DET, L = L, L_max = L_max, DIV = DIV, ENTR = ENTR,
+        LAM = LAM, TT = TT, V_max = V_max, V_ENTR = V_ENTR
+    )
+end
+
+#function get_hist_diagonal_woRP_2(
+#    x::AbstractVector{<:SVector}, 
+#    ε::T, 
+#    apply_artefact_correction::Bool = false; 
+#    rng::AbstractRNG = Random.default_rng()
+#) where {T<:AbstractFloat}
+#
+#    N = length(x)
+#    L = zeros(Int, N)
+#    ε2 = Float64(ε^2)
+#
+#    W_theiler = apply_artefact_correction ? estimate_W(rng, x, ε2) : 0
+#    # d ist der direkte Abstand zur Hauptdiagonalen (d = r - c):
+#    # Ohne Korrektur ab d = 1 (erste Nebendiagonale), mit Korrektur ab d = W_theiler + 1
+#    d_start = apply_artefact_correction ? min(W_theiler + 1, N) : 1
+#
+#    @inbounds for d in d_start:(N - 1)
+#        cnt = 0
+#        @inbounds for c in 1:(N - d)
+#            r = c + d # Zeile r liegt exakt d Schritte über Spalte c (r > c)
+#            
+#            D2 = sq_dist_svec(x, r, c)
+#            is_black = D2 <= ε2
+#            
+#            if is_black && cnt == 0 && apply_artefact_correction
+#                is_black = is_ridge(x, r, c, D2, N)
+#            end
+#            
+#            if is_black
+#                cnt += 1
+#            else
+#                if cnt > 0
+#                    L[cnt] += 1
+#                    cnt = 0
+#                end
+#            end
+#        end
+#        if cnt > 0
+#            L[cnt] += 1
+#        end
+#    end
+#
+#    return L
+#end
+
+#"""
+#Zusatzfunktion 11: get_hist_diagonal_woRP_2 (Exakte O(N^2) Referenz-Baseline)
+#"""
+#function get_hist_diagonal_woRP_2(
+#    x::AbstractVector{<:SVector}, 
+#    ε::T, 
+#    apply_artefact_correction::Bool = false; 
+#    seed_only_mode::Bool = true,
+#    rng::AbstractRNG = Random.default_rng()
+#) where {T<:AbstractFloat}
+#    N = length(x)
+#    L = zeros(Float64, N)
+#    ε2 = ε^2
+#
+#    W_theiler = apply_artefact_correction ? estimate_W(rng, x, ε2) : 0
+#    d_start = apply_artefact_correction ? min(W_theiler + 1, N) : 1
+#
+#    @inbounds for d in d_start:(N - 1)
+#        cnt = 0
+#        ridge_cnt = 0
+#        @inbounds for c in 1:(N - d)
+#            r = c + d
+#            D2 = sq_dist_svec(x, r, c)
+#            is_black = D2 <= ε2
+#            
+#            if is_black && apply_artefact_correction && !seed_only_mode
+#                is_black = is_ridge(x, r, c, D2, N)
+#            end
+#            
+#            if is_black
+#                cnt += 1
+#                if apply_artefact_correction && seed_only_mode && is_ridge(x, r, c, D2, N)
+#                    ridge_cnt += 1
+#                end
+#            else
+#                if cnt > 0
+#                    L[cnt] += (apply_artefact_correction && seed_only_mode) ? (ridge_cnt / cnt) : 1.0
+#                    cnt = 0
+#                    ridge_cnt = 0
+#                end
+#            end
+#        end
+#        if cnt > 0
+#            L[cnt] += (apply_artefact_correction && seed_only_mode) ? (ridge_cnt / cnt) : 1.0
+#        end
+#    end
+#
+#    return L
+#end
+
 
 #function get_hist_diagonal_woRP_2(
 #    x::AbstractVector{<:SVector}, 
@@ -3735,3 +4080,245 @@ end
 #
 #    return L
 #end
+
+"""
+Zusatzfunktion 13:
+Misst vom gefundenen schwarzen Seed (i_start, j_start) im oberen Dreieck (i - j >= min_dist)
+sowohl die vertikale als auch die horizontale Linienlänge.
+Exakt äquivalent zur vertikalen Linienverteilung im gesamten symmetrischen N x N RP!
+"""
+@inline function sample_vertical_at_seed!(
+    V_local::Vector{Float64},
+    x::AbstractVector{<:SVector},
+    i_start::Int,
+    j_start::Int,
+    ε2::T,
+    N::Int,
+    min_dist::Int
+) where {T<:AbstractFloat}
+    # 1. Vertikale Linie im oberen Dreieck (Spalte j_start fest, Zeile i läuft)
+    # Untere Grenze durch Theiler/LOI: i >= j_start + min_dist
+    cnt_v = 1
+    @inbounds for i_up in (i_start + 1):N
+        if sq_dist_svec(x, i_up, j_start) <= ε2; cnt_v += 1; else; break; end
+    end
+    i_min = j_start + min_dist
+    @inbounds for i_dn in (i_start - 1):-1:i_min
+        if sq_dist_svec(x, i_dn, j_start) <= ε2; cnt_v += 1; else; break; end
+    end
+    @inbounds V_local[cnt_v] += 1.0 / cnt_v
+
+    # 2. Horizontale Linie im oberen Dreieck (= Spiegelbild der vertikalen Linie im unteren Dreieck!)
+    # Rechte Grenze durch Theiler/LOI: j <= i_start - min_dist
+    cnt_h = 1
+    @inbounds for j_lt in (j_start - 1):-1:1
+        if sq_dist_svec(x, i_start, j_lt) <= ε2; cnt_h += 1; else; break; end
+    end
+    j_max = i_start - min_dist
+    @inbounds for j_rt in (j_start + 1):j_max
+        if sq_dist_svec(x, i_start, j_rt) <= ε2; cnt_h += 1; else; break; end
+    end
+    @inbounds V_local[cnt_h] += 1.0 / cnt_h
+    return nothing
+end
+
+"""
+Zusatzfunktion 14: activate_tiles_2d (2D-Kachel-Aktivierung im verschobenen Dreieck u >= v)
+"""
+function activate_tiles_2d(
+    rng::AbstractRNG,
+    x::AbstractVector{<:SVector},
+    ε2::T,
+    G::Int,
+    estimated_tries_per_tile::Int,
+    min_dist::Int,
+    apply_correction::Bool
+) where {T<:AbstractFloat}
+    N = length(x)
+    L_tri = N - min_dist
+    if L_tri < 1
+        return Int[], Int[], Int[], Int[], Int[], 0, 0
+    end
+
+    G_eff = min(G, L_tri)
+    max_tiles = (G_eff * (G_eff + 1)) >> 1
+
+    edges = Vector{Int}(undef, G_eff + 1)
+    @inbounds for k in 0:G_eff
+        edges[k + 1] = (k * L_tri) ÷ G_eff
+    end
+
+    cum_area = Vector{Int}(undef, max_tiles)
+    u_lo_arr = Vector{Int}(undef, max_tiles)
+    u_hi_arr = Vector{Int}(undef, max_tiles)
+    v_lo_arr = Vector{Int}(undef, max_tiles)
+    v_hi_arr = Vector{Int}(undef, max_tiles)
+
+    active_count = 0
+    running_area = 0
+
+    @inbounds for gr in 1:G_eff
+        u_lo = edges[gr] + 1
+        u_hi = edges[gr + 1]
+        sr = u_hi - u_lo + 1
+
+        for gc in 1:gr
+            v_lo = edges[gc] + 1
+            v_hi = edges[gc + 1]
+            sc = v_hi - v_lo + 1
+            is_diag = (gr == gc)
+
+            found = false
+            for _ in 1:estimated_tries_per_tile
+                if is_diag
+                    a = rand(rng, 1:sr)
+                    b = rand(rng, 1:(sr + 1))
+                    is_upper = a < b
+                    dv = ifelse(is_upper, a - 1, sr - a)
+                    du = ifelse(is_upper, b - 2, sr - b)
+                    j_start = v_lo + dv
+                    i_start = u_lo + du + min_dist
+                else
+                    j_start = rand(rng, v_lo:v_hi)
+                    i_start = rand(rng, u_lo:u_hi) + min_dist
+                end
+
+                d2 = sq_dist_svec(x, i_start, j_start)
+                if d2 <= ε2
+                    if apply_correction && !is_ridge(x, i_start, j_start, d2, N)
+                        continue
+                    end
+                    found = true
+                    break
+                end
+            end
+
+            if found
+                area = is_diag ? ((sr * (sr + 1)) >> 1) : (sr * sc)
+                running_area += area
+                active_count += 1
+                cum_area[active_count] = running_area
+                u_lo_arr[active_count] = u_lo
+                u_hi_arr[active_count] = u_hi
+                v_lo_arr[active_count] = v_lo
+                v_hi_arr[active_count] = v_hi
+            end
+        end
+    end
+
+    resize!(cum_area, active_count)
+    return cum_area, u_lo_arr, u_hi_arr, v_lo_arr, v_hi_arr, active_count, running_area
+end
+
+"""
+Zusatzfunktion 15: tile2d_lfb_svec (2D-Tile-SMI: 0 Wurzeln, 0% Flächenbias, Adaptiver Fallback)
+"""
+function smi_2D_lfb_svec(
+    rng::AbstractRNG, 
+    x::AbstractVector{<:SVector}, 
+    ε2::T, 
+    M::Int, 
+    estimated_RR::Float64, 
+    G::Int, 
+    W_theiler::Int, 
+    apply_correction::Bool
+) where {T<:AbstractFloat}
+    N = length(x)
+    L_local = zeros(Float64, N)
+
+    min_dist = apply_correction ? max(1, W_theiler + 1) : 1
+    L_tri = N - min_dist
+    if L_tri < 1
+        return L_local, 0
+    end
+    total_effective_pairs = (L_tri * (L_tri + 1)) >> 1
+    max_searches = max(M * 200, total_effective_pairs << 1)
+
+    rr_clamped = clamp(estimated_RR, 0.005, 0.90)
+    estimated_tries_per_tile = clamp(ceil(Int, -2.5 / log1p(-rr_clamped)), 8, 60)
+
+    # 1. Externe 2D-Kachel-Aktivierung im verschobenen Dreieck u >= v
+    cum_area, u_lo_arr, u_hi_arr, v_lo_arr, v_hi_arr, active_count, active_area = activate_tiles_2d(
+        rng, x, ε2, G, estimated_tries_per_tile, min_dist, apply_correction
+    )
+    if active_count == 0
+        return L_local, 0
+    end
+
+    # Adaptiver Fallback bei homogenem RP (>75% der Fläche aktiv)
+    if active_area > 0.75 * total_effective_pairs
+        return rand_sample_lfb_svec(rng, x, ε2, M, W_theiler, apply_correction)
+    end
+
+    K = 50; W_conv = 5; tol = 1e-3; min_samples = 500; next_conv_check = min_samples
+    det_ring = zeros(Float64, W_conv); l_ring = zeros(Float64, W_conv)
+    ring_idx = 1; history_count = 0; sum_n2_L = 0.0; sum_L2 = 0.0; count = 0; countAll = 0
+
+    while count < M
+        if countAll > max_searches; break; end
+        countAll += 1
+
+        # 2. Exakt flächengewichtete Kachel-Auswahl (P(tile) = A_tile / A_active)
+        r_area = rand(rng, 1:active_area)
+        t = searchsortedfirst(cum_area, r_area)
+
+        @inbounds u_lo = u_lo_arr[t]
+        @inbounds u_hi = u_hi_arr[t]
+        @inbounds v_lo = v_lo_arr[t]
+        @inbounds v_hi = v_hi_arr[t]
+
+        # 3. Wurzelfreies Sampling in der Kachel
+        if u_lo == v_lo
+            # Diagonal-Kachel: Branchless Triangle-Folding
+            sr = u_hi - u_lo + 1
+            a = rand(rng, 1:sr)
+            b = rand(rng, 1:(sr + 1))
+            is_upper = a < b
+            dv = ifelse(is_upper, a - 1, sr - a)
+            du = ifelse(is_upper, b - 2, sr - b)
+            j_start = v_lo + dv
+            i_start = u_lo + du + min_dist
+        else
+            # Innen-Kachel (reines Rechteck): 2 Integer-RNGs, 0 Arithmetik
+            j_start = rand(rng, v_lo:v_hi)
+            i_start = rand(rng, u_lo:u_hi) + min_dist
+        end
+
+        d2 = sq_dist_svec(x, i_start, j_start)
+        if d2 > ε2; continue; end
+        if apply_correction && !is_ridge(x, i_start, j_start, d2, N)
+            continue
+        end
+
+        cnt = 1
+        @inbounds for k_offset in 1:(N - i_start)
+            if sq_dist_svec(x, i_start + k_offset, j_start + k_offset) <= ε2; cnt += 1; else; break; end
+        end
+        @inbounds for k_offset in 1:(j_start - 1)
+            if sq_dist_svec(x, i_start - k_offset, j_start - k_offset) <= ε2; cnt += 1; else; break; end
+        end
+
+        weight = 1.0 / cnt
+        @inbounds L_local[cnt] += weight
+        count += 1
+
+        is_long = cnt >= 2
+        sum_n2_L += ifelse(is_long, 1.0, 0.0)
+        sum_L2   += ifelse(is_long, weight, 0.0)
+
+        if count == next_conv_check
+            next_conv_check += K
+            @inbounds det_ring[ring_idx] = sum_n2_L / count
+            @inbounds l_ring[ring_idx]   = sum_L2 > 0.0 ? (sum_n2_L / sum_L2) : 0.0
+            ring_idx = ifelse(ring_idx == W_conv, 1, ring_idx + 1)
+            history_count += 1
+
+            if history_count >= W_conv && calc_rel_change(det_ring) < tol && calc_rel_change(l_ring) < tol
+                break
+            end
+        end
+    end
+
+    countAll_correct_scaled = Int(div(Int128(countAll) * total_effective_pairs, active_area))
+    return L_local, countAll_correct_scaled
+end
